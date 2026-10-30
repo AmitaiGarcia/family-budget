@@ -52,12 +52,21 @@ C.emptyDb=()=>({settings:C.defaultSettings(),bills:Object.fromEntries(C.defaultB
 
 // ---- payment methods -------------------------------------------------------------
 C.BANK_METHODS=[{id:'bank-leumi',name:'Bank transfer / Leumi',bank:'Leumi',type:'bank'},{id:'bank-hapoalim',name:'Bank transfer / Hapoalim',bank:'Hapoalim',type:'bank'},{id:'cash',name:'Cash / other',bank:null,type:'cash'}];
-C.methods=s=>[...(s.cards||[]).map(c=>({id:c.id,name:c.name,bank:c.bank,type:'card',day:Number(c.day)||1})),...C.BANK_METHODS];
+C.methods=s=>[...(s.cards||[]).map(c=>({...c,id:c.id,name:c.name,bank:c.bank,type:'card',day:Number(c.day)||1})),...C.BANK_METHODS];
 C.method=(s,id)=>C.methods(s).find(m=>m.id===id)||null;
 C.card=(s,id)=>(s.cards||[]).find(c=>c.id===id)||null;
 // Agreed rule: bought BEFORE the payment day → collected that month; ON/AFTER → next month.
-C.collectionMonth=(date,card)=>Number(date.slice(8,10))<Number(card.day)?C.monthOf(date):C.addMonths(C.monthOf(date),1);
-C.collectionDate=(month,card)=>C.dateIn(month,card.day);
+// A card paid on the 1st or 2nd bills the whole previous calendar month instead.
+// A card's payment day can change from a given month (card.changes:[{from:'YYYY-MM',day}]).
+const ruleMonth=(date,day)=>Number(day)<=2?C.addMonths(C.monthOf(date),1):Number(date.slice(8,10))<Number(day)?C.monthOf(date):C.addMonths(C.monthOf(date),1);
+const dayChanges=card=>[...(card.changes||[])].filter(c=>C.isMonth(c.from)&&Number(c.day)>=1).sort((a,b)=>a.from.localeCompare(b.from));
+// The payment day in force for the bill collected in `month`.
+C.cardDay=(card,month)=>{let d=Number(card.day)||1;for(const c of dayChanges(card))if(c.from<=month)d=Number(c.day);return d};
+// Which month's bill a purchase lands on. Under the old day a purchase may still fall
+// on a bill before the change; otherwise the new day's rule decides (so the switch
+// month is split, and nothing is billed twice or lost).
+C.collectionMonth=(date,card)=>{let m=ruleMonth(date,card.day);for(const c of dayChanges(card))if(m>=c.from)m=ruleMonth(date,c.day);return m};
+C.collectionDate=(month,card)=>C.dateIn(month,C.cardDay(card,month));
 
 // ---- regular bills -----------------------------------------------------------------
 // A bill's values in a month: the base values, then every change dated on or before it.
