@@ -143,16 +143,16 @@ C.monthTotals=(db,m)=>{const o={},g=id=>o[id]||(o[id]={spent:0,reserved:0,moved:
 C.categoryMonth=(db,catId,m)=>({...(C.monthTotals(db,m)[catId]||ZERO)});
 C.SAVINGS='savings';
 // A bucket has its monthly amount, plus money moved in, minus spending and bills not in yet.
-// A bucket that rolls over keeps what earlier months left (or overspent); every other
-// bucket's leftover (or overspending) goes to Savings when its month ends.
+// A bucket that rolls over (Savings always does) keeps what earlier months left, or overspent;
+// any other bucket starts each month fresh. Money only reaches Savings when you move it there.
 C.budget=(db,m)=>{
- const s=db.settings,cats=s.categories,hasSav=cats.some(c=>c.id===C.SAVINGS),keeps=c=>!!c.rollover||c.id===C.SAVINGS,carry={};let swept=0;
+ const s=db.settings,cats=s.categories,keeps=c=>!!c.rollover||c.id===C.SAVINGS,carry={};
  for(const c of cats)carry[c.id]=keeps(c)?Number(c.opening)||0:0;
- if(m>=s.startMonth)for(let mo=s.startMonth,g=0;mo<m&&g<600;g++,mo=C.addMonths(mo,1)){const T=C.monthTotals(db,mo);swept=0;
-  for(const c of cats){const x=T[c.id]||ZERO,left=(Number(c.limit)||0)+x.moved-x.spent-x.reserved;if(keeps(c))carry[c.id]+=left;else if(hasSav){carry[C.SAVINGS]+=left;swept+=left}}}
- const T=C.monthTotals(db,m),before=m>s.startMonth;
+ if(m>=s.startMonth)for(let mo=s.startMonth,g=0;mo<m&&g<600;g++,mo=C.addMonths(mo,1)){const T=C.monthTotals(db,mo);
+  for(const c of cats)if(keeps(c)){const x=T[c.id]||ZERO;carry[c.id]+=(Number(c.limit)||0)+x.moved-x.spent-x.reserved}}
+ const T=C.monthTotals(db,m);
  const out=cats.map(c=>{const x=T[c.id]||ZERO,cin=m>=s.startMonth?carry[c.id]:0;return {...c,...x,carry:C.round2(cin),available:C.round2((Number(c.limit)||0)+x.moved-x.spent-x.reserved+cin)}});
- return {cats:out,left:C.sum(out,c=>c.available),swept:before?C.round2(swept):0}};
+ return {cats:out,left:C.sum(out,c=>c.available)}};
 C.available=(db,cat,m)=>{const cs=db.settings.categories,b=C.budget({...db,settings:{...db.settings,categories:cs.some(c=>c.id===cat.id)?cs.map(c=>c.id===cat.id?cat:c):[...cs,cat]}},m);return b.cats.find(c=>c.id===cat.id).available};
 
 // ---- card collections ("the statement wins") -----------------------------------

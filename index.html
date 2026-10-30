@@ -102,8 +102,8 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
  <div class="err hidden" id="stErr" role="alert"></div>
  <div class="actions"><button class="primary" type="submit">Save</button><button class="secondary" type="button" data-close>Cancel</button><button class="secondary danger hidden" type="button" id="stDelete">Remove — add up purchases instead</button></div></form></dialog>
 
-<dialog id="dlgMove"><form id="formMove" novalidate><div class="mhead">Move money from Savings</div><p class="subtle" id="mvInfo"></p>
- <label for="mvTo">To which bucket</label><select id="mvTo"></select>
+<dialog id="dlgMove"><form id="formMove" novalidate><div class="mhead" id="mvHead">Take from Savings</div><p class="subtle" id="mvInfo"></p>
+ <label for="mvTo" id="mvLabel">For which bucket</label><select id="mvTo"></select>
  <label for="mvAmount">How much (₪)</label><input id="mvAmount" type="number" inputmode="decimal" step="any" min="0">
  <div class="err hidden" id="mvErr" role="alert"></div>
  <div class="actions"><button class="primary" type="submit">Move</button><button class="secondary" type="button" data-close>Cancel</button></div></form></dialog>
@@ -113,7 +113,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 <input type="file" id="fileBackup" accept=".json,application/json" class="hidden">
 
 <!-- the ?v= number must change with APP below on every update, so phones never mix an old core.js with a new page -->
-<script src="core.js?v=3.1"></script>
+<script src="core.js?v=3.2"></script>
 <script>
 // The family's Firebase project. This is not a secret: the Firestore rules decide who can read the data.
 window.FAMILY_BUDGET_FIREBASE_CONFIG = {
@@ -127,7 +127,7 @@ window.FAMILY_BUDGET_FIREBASE_CONFIG = {
 </script>
 <script>
 (()=>{'use strict';
-const C=window.BudgetCore,APP='3.1',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
+const C=window.BudgetCore,APP='3.2',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
 const el=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=x=>(Number(x)<0?'−':'')+'₪'+Math.abs(Number(x||0)).toLocaleString('en-US',{maximumFractionDigits:2});
 const monthLabel=m=>C.isMonth(m)?new Date(m+'-02T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'}):'—';
@@ -243,16 +243,14 @@ function bucketRow(c){
  const lim=Number(c.limit)||0,used=c.spent+c.reserved,room=Math.max(lim+c.moved+Math.max(c.carry,0),1),pct=Math.max(0,Math.min(100,used/room*100)),over=c.available<0;
  const notes=[c.carry>0.5?'includes '+money(c.carry)+' saved from earlier months':c.carry<-0.5?money(-c.carry)+' less because of overspending earlier':'',c.moved>0.5?'includes '+money(c.moved)+' from Savings':c.moved<-0.5?money(-c.moved)+' moved out':''].filter(Boolean).join(' · ');
  return `<button type="button" class="bucket" data-act="view-cat" data-id="${esc(c.id)}"><div class="row"><span>${esc(c.name)}</span><span class="left ${over?'over':''}">${over?money(-c.available)+' over':money(c.available)+' left'} <span class="of">of ${money(lim)}</span></span></div>${notes?`<div class="subtle" style="margin-top:2px">${notes}</div>`:''}<div class="bar"><div class="fill ${over?'over':pct>85?'warning':''}" style="width:${pct}%"></div></div></button>`}
-// Savings: what every bucket left over (or overspent) last month lands here.
+// Savings: money you choose to put aside from a bucket, and take back when a bucket needs it.
 function renderSavings(b){
  const sv=b.cats.find(c=>c.id===C.SAVINGS),box=el('savingsCard');if(!sv){box.classList.add('hidden');return}box.classList.remove('hidden');
- const prev=monthLabel(C.addMonths(month,-1)),first=month<=data.settings.startMonth,moves=C.movesInMonth(data,month);
- const swept=b.swept>0.5?money(b.swept)+' left over in the buckets in '+prev+' was added.':b.swept<-0.5?'The buckets went '+money(-b.swept)+' over in '+prev+'; that came out of Savings.':'';
+ const moves=C.movesInMonth(data,month);
  box.innerHTML=`<div class="row"><h2 style="margin:0">${esc(sv.name)}</h2><span class="savingsnum ${sv.available<0?'over':''}">${sv.available<0?money(-sv.available)+' short':money(sv.available)}</span></div>
-  <div class="subtle" style="margin:6px 0">${first?'From next month, whatever is left in a bucket at the end of the month comes here (buckets marked “rolls over” keep theirs).':'Whatever is left in a bucket at the end of a month comes here (buckets marked “rolls over” keep theirs).'}${Number(sv.limit)?' Plus '+money(sv.limit)+' every month.':''}</div>
-  ${swept?`<div style="margin:6px 0">${esc(swept)}</div>`:''}
-  ${moves.map(v=>`<div class="waiting"><span>${v.from===C.SAVINGS?money(v.amount)+' moved to '+esc(catName(v.to)):money(v.amount)+' moved back from '+esc(catName(v.from))} <span class="subtle">${esc(v.person||'')}</span></span><button class="secondary small" type="button" data-act="undo-move" data-id="${esc(v.id)}">Undo</button></div>`).join('')}
-  <div class="actions"><button class="secondary" type="button" data-act="move">Move money to a bucket</button></div>`}
+  <div class="subtle" style="margin:6px 0">Too much left in a bucket? Put it here. A bucket short? Take it from here.${Number(sv.limit)?' Plus '+money(sv.limit)+' every month.':''}</div>
+  ${moves.map(v=>`<div class="waiting"><span>${money(v.amount)} ${v.from===C.SAVINGS?'taken for '+esc(catName(v.to)):v.to===C.SAVINGS?'put in from '+esc(catName(v.from)):'moved from '+esc(catName(v.from))+' to '+esc(catName(v.to))} <span class="subtle">${esc(v.person||'')}</span></span><button class="secondary small" type="button" data-act="undo-move" data-id="${esc(v.id)}">Undo</button></div>`).join('')}
+  <div class="actions"><button class="secondary" type="button" data-act="move-in">Put into Savings</button><button class="secondary" type="button" data-act="move-out">Take from Savings</button></div>`}
 function renderHome(){
  const s=data.settings,b=C.budget(data,month),spendable=b.cats.filter(c=>c.id!==C.SAVINGS&&c.id!=='bills');
  const left=C.sum(spendable,c=>c.available),billsLeft=b.cats.find(c=>c.id==='bills');
@@ -462,7 +460,7 @@ function renderSettings(){const s=data.settings,cfg=currentConfig();
  el('tab-settings').innerHTML=`
  <div class="card"><h2>Cloud sync</h2>${store.kind==='cloud'?`<p>Signed in as <b>${esc(user?.email||'—')}</b>. Changes appear on every signed-in phone within seconds, and work offline.</p><div class="actions"><button class="secondary" type="button" data-act="share-setup">Copy setup link for another phone</button><button class="secondary" type="button" data-act="signout">Sign out</button>${window.FAMILY_BUDGET_FIREBASE_CONFIG?'':'<button class="secondary" type="button" data-act="disconnect">Stop using cloud on this device</button>'}</div>`:`<p>This budget is saved <b>on this device only</b>. To share it between two phones, connect your free Firebase database (see SETUP.md).</p><label for="cfgText">Firebase config (paste from the Firebase console)</label><textarea id="cfgText" placeholder="const firebaseConfig = { apiKey: ... }">${cfg?esc(JSON.stringify(cfg,null,1)):''}</textarea><div class="actions"><button class="primary" type="button" data-act="connect">Connect</button></div>`}</div>
  <div class="card"><h2>Income & categories</h2><form id="formCats" novalidate><label for="setIncome">Monthly income (₪)</label><input id="setIncome" type="number" step="any" min="0" value="${esc(s.income)}">
-  ${s.categories.map((c,i)=>`<div class="setrow"><div><label>Name</label><input data-cat-name="${i}" value="${esc(c.name)}"></div><div><label>Monthly (₪)</label><input data-cat-limit="${i}" type="number" step="any" min="0" value="${esc(c.limit)}"></div><div><label>Opening carry (₪)</label><input data-cat-open="${i}" type="number" step="any" value="${esc(c.opening||0)}" ${c.rollover||c.id===C.SAVINGS?'':'disabled'}></div><div><label><input type="checkbox" data-cat-roll="${i}" ${c.id===C.SAVINGS?'checked disabled':c.rollover?'checked':''}> ${c.id===C.SAVINGS?'Collects leftovers':'Rolls over'}</label></div></div>`).join('')}
+  ${s.categories.map((c,i)=>`<div class="setrow"><div><label>Name</label><input data-cat-name="${i}" value="${esc(c.name)}"></div><div><label>Monthly (₪)</label><input data-cat-limit="${i}" type="number" step="any" min="0" value="${esc(c.limit)}"></div><div><label>Opening carry (₪)</label><input data-cat-open="${i}" type="number" step="any" value="${esc(c.opening||0)}" ${c.rollover||c.id===C.SAVINGS?'':'disabled'}></div><div><label><input type="checkbox" data-cat-roll="${i}" ${c.id===C.SAVINGS?'checked disabled':c.rollover?'checked':''}> ${c.id===C.SAVINGS?'Always keeps':'Rolls over'}</label></div></div>`).join('')}
   <div class="subtle" style="margin-top:8px">Categories total ${money(C.sum(s.categories,c=>c.limit))} of ${money(s.income)} income.</div><div class="actions"><button class="primary" type="submit">Save categories</button></div></form></div>
  <div class="card"><h2>Cards</h2><form id="formCards" novalidate>${s.cards.map((c,i)=>`<div class="setrow"><div><label>Card</label><input data-card-name="${i}" value="${esc(c.name)}"></div><div><label>Bank</label><select data-card-bank="${i}"><option${c.bank==='Leumi'?' selected':''}>Leumi</option><option${c.bank==='Hapoalim'?' selected':''}>Hapoalim</option></select></div><div><label>Payment day</label><input data-card-day="${i}" type="number" min="1" max="28" value="${esc(latestDay(c))}"></div><div><label>New day from bill of</label><input data-card-from="${i}" type="month" value="${esc(nextMonthFor(c))}"></div></div><div class="subtle" style="margin:4px 0 10px">${esc(dayStory(c))}</div>`).join('')}<div class="subtle" style="margin-top:8px">On the 1st or 2nd, a card's bill is the whole previous month. On a later day, purchases before that day are on that month's bill, the rest on the next. If you change a day, earlier bills stay as they were.</div><div class="actions"><button class="primary" type="submit">Save cards</button></div></form></div>
  <div class="card"><h2>Accounts & car reserve</h2><form id="formAcc" novalidate><div class="grid2"><div><label for="accLeumi">Leumi balance (₪)</label><input id="accLeumi" type="number" step="any" value="${esc(s.accounts.leumi)}"></div><div><label for="accHap">Hapoalim balance (₪)</label><input id="accHap" type="number" step="any" value="${esc(s.accounts.hapoalim)}"></div><div><label for="accRes">Protected car reserve (₪)</label><input id="accRes" type="number" step="any" min="0" value="${esc(s.accounts.carReserve)}"></div><div><label for="accDue">Balloon payment due</label><input id="accDue" type="month" value="${esc(s.accounts.carReserveDue||'')}"></div></div>
@@ -485,15 +483,18 @@ function renderSettings(){const s=data.settings,cfg=currentConfig();
  const pn=el('personName');if(pn)pn.onchange=()=>{lsSet('familyBudgetPerson',pn.value.trim()||'Me')};
 }
 
-// ---- moving money out of Savings into a bucket (for the month on screen) -----------
-function openMove(){const b=C.budget(data,month),sv=b.cats.find(c=>c.id===C.SAVINGS),list=b.cats.filter(c=>c.id!==C.SAVINGS),over=list.find(c=>c.available<0);
- el('mvInfo').textContent='Savings has '+money(Math.max(sv.available,0))+'. The money is added to the bucket for '+monthLabel(month)+' only.';
- el('mvTo').innerHTML=list.map(c=>`<option value="${esc(c.id)}"${over&&c.id===over.id?' selected':''}>${esc(c.name)}: ${c.available<0?money(-c.available)+' over':money(c.available)+' left'}</option>`).join('');
- el('mvAmount').value=over?C.round2(-over.available):'';showErr('mvErr','');openDlg('dlgMove')}
-el('formMove').addEventListener('submit',e=>{e.preventDefault();const amount=C.round2(el('mvAmount').value),to=el('mvTo').value,sv=C.budget(data,month).cats.find(c=>c.id===C.SAVINGS);
+// ---- moving money between Savings and a bucket (in the month on screen) ------------
+let moveDir='out';   // 'out' = Savings → bucket, 'in' = bucket → Savings
+function openMove(dir){moveDir=dir;const b=C.budget(data,month),sv=b.cats.find(c=>c.id===C.SAVINGS),list=b.cats.filter(c=>c.id!==C.SAVINGS),over=list.find(c=>c.available<0);
+ el('mvHead').textContent=dir==='out'?'Take from Savings':'Put into Savings';
+ el('mvLabel').textContent=dir==='out'?'For which bucket':'From which bucket';
+ el('mvInfo').textContent='Savings has '+money(Math.max(sv.available,0))+'.';
+ el('mvTo').innerHTML=list.map(c=>`<option value="${esc(c.id)}"${dir==='out'&&over&&c.id===over.id?' selected':''}>${esc(c.name)}: ${c.available<0?money(-c.available)+' over':money(c.available)+' left'}</option>`).join('');
+ el('mvAmount').value=dir==='out'&&over?C.round2(-over.available):'';showErr('mvErr','');openDlg('dlgMove')}
+el('formMove').addEventListener('submit',e=>{e.preventDefault();const amount=C.round2(el('mvAmount').value),cat=el('mvTo').value,from=moveDir==='out'?C.SAVINGS:cat,to=moveDir==='out'?cat:C.SAVINGS,src=C.budget(data,month).cats.find(c=>c.id===from);
  if(!(amount>0))return showErr('mvErr','Type how much to move.');
- if(amount>sv.available+0.005)return showErr('mvErr','Savings only has '+money(Math.max(sv.available,0))+'.');
- if(write([{op:'set',coll:'moves',id:C.newId(),data:{month,from:C.SAVINGS,to,amount,person:person(),date:today()}}],money(amount)+' moved to '+catName(to)+'.')){closeDlg('dlgMove');render()}});
+ if(amount>src.available+0.005)return showErr('mvErr',src.name+' only has '+money(Math.max(src.available,0))+'.');
+ if(write([{op:'set',coll:'moves',id:C.newId(),data:{month,from,to,amount,person:person(),date:today()}}],money(amount)+(moveDir==='out'?' taken from Savings for '+catName(to):' put into Savings')+'.')){closeDlg('dlgMove');render()}});
 
 // ---------------------------------------------------------------- backup / restore / migrate
 function download(name,content,type){const url=URL.createObjectURL(new Blob([content],{type})),a=document.createElement('a');a.href=url;a.download=name;a.style.display='none';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000)}
@@ -544,8 +545,9 @@ document.addEventListener('click',async e=>{
   case 'add-expense':openExpense('expense');break;
   case 'add-refund':openExpense('refund');break;
   case 'view-cat':txFilter=b.dataset.id;tab='spending';render();break;
-  case 'move':openMove();break;
-  case 'undo-move':{const id=b.dataset.id,v=data.moves[id];if(v&&await ask('Undo moving '+money(v.amount)+' to '+catName(v.to)+'?',{yes:'Undo'})){write([{op:'delete',coll:'moves',id}],'Move undone.');render()}break}
+  case 'move-out':openMove('out');break;
+  case 'move-in':openMove('in');break;
+  case 'undo-move':{const id=b.dataset.id,v=data.moves[id];if(v&&await ask('Undo moving '+money(v.amount)+' from '+catName(v.from)+' to '+catName(v.to)+'?',{yes:'Undo'})){write([{op:'delete',coll:'moves',id}],'Move undone.');render()}break}
   case 'toggle-buckets':showAllBuckets=!showAllBuckets;render();break;
   case 'downloaded':lsSet('familyBudgetDownloaded',month);render();break;
   case 'edit-tx':{const id=b.dataset.id,t=data.transactions[id]?{...data.transactions[id],id}:C.itemsForMonth(data,month).find(x=>x.id===id)||[-2,-1,1].flatMap(n=>C.itemsForMonth(data,C.addMonths(month,n))).find(x=>x.id===id);if(t)openExpense(t.type,t);else{banner('That item could not be found (it may have changed on the other phone).','warn');render()}break}
