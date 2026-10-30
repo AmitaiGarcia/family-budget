@@ -86,7 +86,8 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
  <label for="billKind">Is the amount the same every time?</label><select id="billKind"><option value="fixed">Yes — the same every time</option><option value="variable">No — it changes (like electricity)</option></select>
  <div class="grid2"><div><label for="billAmount" id="billAmountLabel">Amount (₪)</label><input id="billAmount" type="number" inputmode="decimal" step="any" min="0"></div><div><label for="billDay">Day of the month</label><input id="billDay" type="number" min="1" max="31" step="1"></div></div>
  <div class="grid2"><div><label for="billEvery">How often</label><select id="billEvery"><option value="1">Every month</option><option value="2">Every 2 months</option><option value="3">Every 3 months</option><option value="6">Every 6 months</option><option value="12">Every year</option><option value="0">Just once</option></select></div><div><label for="billMethod">Paid with</label><select id="billMethod"></select></div></div>
- <div class="grid2"><div><label for="billStart">Starts</label><input id="billStart" type="month"></div><div><label for="billEnd">Ends (leave empty if it doesn't)</label><input id="billEnd" type="month"></div></div>
+ <label id="billSpreadWrap" class="hidden" style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" id="billSpread"> Set aside part of it every month (recommended)</label>
+ <div class="grid2"><div><label for="billStart" id="billStartLabel">Starts</label><input id="billStart" type="month"></div><div><label for="billEnd">Ends (leave empty if it doesn't)</label><input id="billEnd" type="month"></div></div>
  <label for="billCategory">Bucket</label><select id="billCategory"></select>
  <div id="billFromWrap" class="hidden"><label for="billFrom">Use the new amount or date from</label><input id="billFrom" type="month"><div class="subtle">Months before that keep the old amount.</div></div>
  <div class="err hidden" id="billErr" role="alert"></div>
@@ -245,7 +246,7 @@ function renderHome(){
  // banks
  const banks=C.bankPayments(data,month),waiting=notInYet(month);
  el('homeBanks').innerHTML=banks.map(x=>`<button type="button" class="bank-line" data-tab="banks"><span>${esc(x.bank)}</span><span class="bank-amount"><b>${money(x.total)}</b></span></button>`).join('')+
-  (waiting.length?`<div class="subtle" style="margin:10px 0 2px">Bills not in yet — counting the usual amount for now:</div>`+waiting.map(o=>`<div class="waiting"><span>${esc(o.note)} <span class="subtle">${money(o.amount)}</span></span><button class="secondary small" type="button" data-act="actual" data-bill="${esc(o.billId)}" data-month="${esc(month)}">It arrived</button></div>`).join(''):'');
+  (waiting.length?`<div class="subtle" style="margin:10px 0 2px">Bills not in yet — counting the usual amount for now:</div>`+waiting.map(o=>`<div class="waiting"><span>${esc(o.note)} <span class="subtle">${o.share?money(o.amount)+' this month (half of the '+esc(monthLabel(o.billMonth))+' bill)':money(o.amount)}</span></span><button class="secondary small" type="button" data-act="actual" data-bill="${esc(o.billId)}" data-month="${esc(o.billMonth)}">It arrived</button></div>`).join(''):'');
  // download day: the day after the last card collection
  const dd=Math.min(28,Math.max(...s.cards.map(c=>Number(c.day)||1),1)+1),done=lsGet('familyBudgetDownloaded')===month;
  el('downloadDay').innerHTML=month===thisMonth()&&Number(today().slice(8))>=dd&&!done?`<div class="dd"><b>Download day</b><div style="margin:6px 0 10px">All cards have been charged this month. Download each card's transactions from its website and import them here.</div><div class="actions" style="margin:0"><button class="primary" type="button" data-act="import">⬆ Import a card file</button><button class="secondary" type="button" data-act="downloaded">Done for this month</button></div></div>`:'';
@@ -253,7 +254,10 @@ function renderHome(){
 }
 
 // ---- Spending ------------------------------------------------------------------
-function txRow(t){const waiting=t.estimate,auto=t.virtual&&!waiting,paidBill=t.billId&&!t.virtual;
+function txRow(t){
+ // a 2-month bill's monthly share: always opens the bill itself
+ if(t.share){const e=Number(data.bills[t.billId]?.every)||2;return `<div class="tx"><div><strong>${esc(t.note)}</strong><span class="subtle">${t.estimate?'Setting aside 1/'+e+' of the usual '+money(t.billAmount)+' bill':'1/'+e+' of the '+money(t.billAmount)+' bill'} · paid ${esc(monthLabel(t.billMonth))}</span>${t.estimate?'<span class="tag est">Not in yet</span>':'<span class="tag ok">Bill</span>'}</div><div style="text-align:right"><strong class="amount ${t.estimate?'muted':''}">${money(t.amount)}</strong><div class="actions" style="margin-top:4px;justify-content:flex-end"><button class="secondary small" type="button" data-act="actual" data-bill="${esc(t.billId)}" data-month="${esc(t.billMonth)}">${t.estimate?'It arrived':'Change'}</button></div></div></div>`}
+ const waiting=t.estimate,auto=t.virtual&&!waiting,paidBill=t.billId&&!t.virtual;
  const tag=waiting?'<span class="tag est">Not in yet — usual amount</span>':auto?'<span class="tag">Regular bill</span>':paidBill?'<span class="tag ok">Bill</span>':'';
  return `<div class="tx"><div><strong>${esc(t.note||catName(t.category))}</strong><span class="subtle">${esc(dayLabel(t.date))} · ${esc(catName(t.category))} · ${esc(methodName(t.method))}${t.person&&t.person!=='Automatic'?' · '+esc(t.person):''}</span>${tag}</div><div style="text-align:right"><strong class="amount ${t.type==='refund'?'positive':waiting?'muted':''}">${t.type==='refund'?'+':''}${money(t.amount)}</strong><div class="actions" style="margin-top:4px;justify-content:flex-end">${waiting?`<button class="secondary small" type="button" data-act="actual" data-bill="${esc(t.billId)}" data-month="${esc(t.billMonth)}">It arrived</button>`:`<button class="secondary small" type="button" data-act="edit-tx" data-id="${esc(t.id)}">Change</button>`}</div></div></div>`}
 function renderSpending(){
@@ -270,11 +274,13 @@ function renderBanks(){
 }
 
 // ---- Bills ---------------------------------------------------------------------
-function scheduleText(b){const e=Number(b.every);const v=C.billValues(b,clampMonth(month));return (e===0?'Once, '+monthLabel(b.start):e===1?'Every month':e===12?'Every year':'Every '+e+' months')+' on the '+v.day+(v.day===1?'st':v.day===2?'nd':v.day===3?'rd':'th')+' · '+methodName(v.method)+(b.end&&e!==0?' · until '+monthLabel(b.end):'')}
+function scheduleText(b){const e=Number(b.every);const v=C.billValues(b,clampMonth(month));return (e===0?'Once, '+monthLabel(b.start):e===1?'Every month':e===12?'Every year':'Every '+e+' months')+' on the '+v.day+(v.day===1?'st':v.day===2?'nd':v.day===3?'rd':'th')+' · '+methodName(v.method)+(C.isSpread(b)?' · 1/'+e+' set aside each month':'')+(b.end&&e!==0?' · until '+monthLabel(b.end):'')}
 function renderBills(){
  const all=Object.values(data.bills).sort((a,b)=>a.name.localeCompare(b.name)),m=month;
  const group=(title,hint,list)=>list.length?`<h3>${title}</h3><div class="subtle" style="margin-bottom:4px">${hint}</div>`+list.map(b=>{const v=C.billValues(b,m),occurs=C.billOccursIn(b,m),actual=C.billActual(data,b.id,m),paused=(b.pauses||[]).some(p=>p.from<=m&&(!p.to||m<=p.to));let st='';
-  if(paused)st='<span class="tag">Stopped for now</span>';else if(!occurs)st='<span class="subtle">Nothing due in '+esc(monthLabel(m))+'</span>';else if(actual)st=`<span class="tag ok">Arrived · ${money(actual.amount)}</span>`;else if(b.kind==='variable')st=`<span class="tag est">Not in yet · counting ${money(v.amount)}</span> <button class="secondary small" type="button" data-act="actual" data-bill="${esc(b.id)}" data-month="${esc(m)}">It arrived</button>`;else st='<span class="tag">Added automatically</span>';
+  if(!paused&&C.isSpread(b)){const P=C.cycleMonth(b,m),pv=C.billValues(b,P),pa=C.billActual(data,b.id,P),e=Number(b.every);
+   st=pa?`<span class="tag ok">${esc(monthLabel(P))} bill arrived · ${money(pa.amount)}</span> <span class="subtle">${money(C.round2(pa.amount/e))} counted this month</span>`:`<span class="tag est">Next bill ${esc(monthLabel(P))} · about ${money(pv.amount)}</span> <span class="subtle">setting aside ${money(C.round2(pv.amount/e))} this month</span> <button class="secondary small" type="button" data-act="actual" data-bill="${esc(b.id)}" data-month="${esc(P)}">It arrived</button>`}
+  else if(paused)st='<span class="tag">Stopped for now</span>';else if(!occurs)st='<span class="subtle">Nothing due in '+esc(monthLabel(m))+'</span>';else if(actual)st=`<span class="tag ok">Arrived · ${money(actual.amount)}</span>`;else if(b.kind==='variable')st=`<span class="tag est">Not in yet · counting ${money(v.amount)}</span> <button class="secondary small" type="button" data-act="actual" data-bill="${esc(b.id)}" data-month="${esc(m)}">It arrived</button>`;else st='<span class="tag">Added automatically</span>';
   return `<div class="tx"><div><strong>${esc(b.name)}</strong><span class="subtle">${money(v.amount)} · ${esc(scheduleText(b))}</span><div style="margin-top:4px">${st}</div></div><div style="text-align:right"><div class="actions" style="margin-top:0;justify-content:flex-end"><button class="secondary small" type="button" data-act="edit-bill" data-id="${esc(b.id)}">Change</button>${Number(b.every)!==0?`<button class="secondary small" type="button" data-act="pause-bill" data-id="${esc(b.id)}">${paused?'Start again':'Stop'}</button>`:''}</div></div></div>`}).join(''):'';
  el('billList').innerHTML=(group('Same amount every time','Added to your spending automatically.',all.filter(b=>b.kind!=='variable'&&Number(b.every)!==0))+group('Amount changes','We count the usual amount until you tap “It arrived” and type the real one.',all.filter(b=>b.kind==='variable'&&Number(b.every)!==0))+group('One time','A single payment you know is coming.',all.filter(b=>Number(b.every)===0)))||'<div class="empty">No bills yet.</div>';
 }
@@ -334,7 +340,9 @@ el('expDelete').onclick=async()=>{if(!editTx)return;
 // ---------------------------------------------------------------- actual bill amounts
 let actCtx=null;
 function openActual(billId,m){const b=data.bills[billId];if(!b)return banner('That bill no longer exists.','warn');const v=C.billValues(b,m),existing=C.billActual(data,billId,m);actCtx={b,m,existing};
- el('actHead').textContent=b.name+' bill — '+monthLabel(m);el('actInfo').textContent=existing?'You entered '+money(existing.amount)+'. Change it if needed.':'Until now we counted the usual '+money(v.amount)+'. Type what the bill really says; it replaces that amount, it is not added on top.';
+ el('actHead').textContent=b.name+' bill — '+monthLabel(m);
+ const cover=C.isSpread(b)?C.coveredMonths(b,m).map(x=>new Date(x+'-02T12:00:00').toLocaleDateString('en-US',{month:'long'})).join(' and '):'';
+ el('actInfo').textContent=C.isSpread(b)?(existing?'You entered '+money(existing.amount)+' for '+cover+'. Change it if needed.':'This bill covers '+cover+'. Type the whole amount on the bill; it is split over those months, replacing the '+money(C.round2(v.amount/Number(b.every)))+' a month set aside.'):existing?'You entered '+money(existing.amount)+'. Change it if needed.':'Until now we counted the usual '+money(v.amount)+'. Type what the bill really says; it replaces that amount, it is not added on top.';
  el('actAmount').value=existing?existing.amount:'';el('actDate').value=existing?.date||C.dateIn(m,v.day);el('actMethod').innerHTML=methodOptions(existing?.method||v.method);showErr('actErr','');openDlg('dlgActual')}
 el('formActual').addEventListener('submit',e=>{e.preventDefault();if(!actCtx)return;const {b,m,existing}=actCtx,amount=C.round2(el('actAmount').value),date=el('actDate').value;
  if(!(amount>0))return showErr('actErr','Type the amount on the bill.');if(!C.isDate(date))return showErr('actErr','Choose the date it is paid.');
@@ -344,18 +352,19 @@ el('formActual').addEventListener('submit',e=>{e.preventDefault();if(!actCtx)ret
 // ---------------------------------------------------------------- bills
 let editBill=null;
 function openBill(b=null){editBill=b;const m=clampMonth(month),v=b?C.billValues(b,m):null;
- el('billHead').textContent=b?b.name:'Add a bill';el('billName').value=b?.name||'';el('billKind').value=b?.kind||'fixed';el('billAmount').value=v?.amount??'';el('billEvery').value=String(b?.every??1);el('billDay').value=v?.day||1;el('billStart').value=b?.start||m;el('billEnd').value=b?.end||'';
+ el('billHead').textContent=b?b.name:'Add a bill';el('billName').value=b?.name||'';el('billKind').value=b?.kind||'fixed';el('billAmount').value=v?.amount??'';el('billEvery').value=String(b?.every??1);el('billSpread').checked=b?C.isSpread(b):true;el('billDay').value=v?.day||1;el('billStart').value=b?.start||m;el('billEnd').value=b?.end||'';
  el('billCategory').innerHTML=catOptions(v?.category||'bills',v?.category);el('billMethod').innerHTML=methodOptions(v?.method||'bank-hapoalim');
  el('billFromWrap').classList.toggle('hidden',!b);el('billFrom').value=b?(m>b.start?m:b.start):'';el('billDelete').classList.toggle('hidden',!b);showErr('billErr','');billKindLabel();openDlg('dlgBill')}
-const billKindLabel=()=>{el('billAmountLabel').textContent=el('billKind').value==='variable'?'Usual amount (₪)':'Amount (₪)'};
-el('billKind').addEventListener('change',billKindLabel);
+const billKindLabel=()=>{const every=Number(el('billEvery').value);el('billAmountLabel').textContent=(el('billKind').value==='variable'?'Usual amount':'Amount')+(every>1?' per bill (₪)':' (₪)');el('billSpreadWrap').classList.toggle('hidden',!(every>1));el('billStartLabel').textContent=every>1?'A month it is paid':'Starts'};
+el('billKind').addEventListener('change',billKindLabel);el('billEvery').addEventListener('change',billKindLabel);
 el('formBill').addEventListener('submit',e=>{e.preventDefault();
  const name=el('billName').value.trim(),amount=C.round2(el('billAmount').value),day=Number(el('billDay').value),every=Number(el('billEvery').value),start=el('billStart').value,end=el('billEnd').value,from=el('billFrom').value;
  if(!name)return showErr('billErr','Give the bill a name.');if(!(amount>0))return showErr('billErr','Enter an amount above zero.');if(!(day>=1&&day<=31))return showErr('billErr','The day must be between 1 and 31.');if(!C.isMonth(start))return showErr('billErr','Choose when it starts.');if(end&&end<start)return showErr('billErr','It ends before it starts.');
  const vals={amount,day,method:el('billMethod').value,category:el('billCategory').value};
  let b;
- if(!editBill)b={id:C.safeId('b-'+C.newId()),name,kind:el('billKind').value,every,start,end:every===0?'':end,pauses:[],skipped:[],changes:[],...vals};
- else{b={...editBill,name,kind:el('billKind').value,every,start,end:every===0?'':end};const cur=C.billValues(editBill,C.isMonth(from)?from:start),changed=Object.keys(vals).filter(k=>String(vals[k])!==String(cur[k]));
+ const spread=every>1&&el('billSpread').checked;
+ if(!editBill)b={id:C.safeId('b-'+C.newId()),name,kind:el('billKind').value,every,spread,start,end:every===0?'':end,pauses:[],skipped:[],changes:[],...vals};
+ else{b={...editBill,name,kind:el('billKind').value,every,spread,start,end:every===0?'':end};const cur=C.billValues(editBill,C.isMonth(from)?from:start),changed=Object.keys(vals).filter(k=>String(vals[k])!==String(cur[k]));
   if(changed.length){if(!C.isMonth(from)||from<=start){Object.assign(b,vals);b.changes=(b.changes||[]).filter(c=>c.from>start)}else{const ch={from};changed.forEach(k=>ch[k]=vals[k]);b.changes=[...(b.changes||[]).filter(c=>c.from!==from),ch]}}}
  if(write([{op:'set',coll:'bills',id:b.id,data:b}],name+' saved.')){closeDlg('dlgBill');render()}});
 el('billDelete').onclick=async()=>{if(!editBill||!await ask('Delete '+editBill.name+' completely? It disappears from every month, including past ones. Amounts you already typed for it stay as normal purchases.\n\nIf it just stopped, use “Stop” instead — past months then stay as they were.',{title:'Delete this bill?',yes:'Delete bill'}))return;write([{op:'delete',coll:'bills',id:editBill.id}],editBill.name+' deleted.');closeDlg('dlgBill');render()};
@@ -450,7 +459,7 @@ function renderSettings(){const s=data.settings,cfg=currentConfig();
 // ---------------------------------------------------------------- backup / restore / migrate
 function download(name,content,type){const url=URL.createObjectURL(new Blob([content],{type})),a=document.createElement('a');a.href=url;a.download=name;a.style.display='none';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000)}
 function exportCsv(){const s=data.settings,rows=[['date','type','category','amount_ils','description','paid_with','recorded_by','status']];const last=thisMonth()<s.startMonth?s.startMonth:thisMonth();
- const items=Object.entries(data.transactions).map(([id,t])=>({...t,id}));for(let m=s.startMonth,g=0;m<=last&&g<600;g++,m=C.addMonths(m,1))items.push(...C.occurrences(data,m).filter(o=>o.date<=today()));
+ const items=Object.entries(data.transactions).map(([id,t])=>({...t,id}));for(let m=s.startMonth,g=0;m<=last&&g<600;g++,m=C.addMonths(m,1))items.push(...C.paymentOccurrences(data,m).filter(o=>o.date<=today()));
  for(const t of items.sort((a,b)=>String(a.date).localeCompare(String(b.date))))rows.push([t.date,t.type,catName(t.category),t.amount,t.note,methodName(t.method),t.person,t.estimate?'estimate':t.virtual?'automatic bill':'recorded']);
  download('family-budget-transactions-'+today()+'.csv','﻿'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n'),'text/csv;charset=utf-8')}
 // Replace everything with a new dataset (restore, migration, first setup).

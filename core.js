@@ -72,19 +72,51 @@ C.billOccursIn=(b,m)=>{
 const txList=db=>Object.entries(db.transactions||{}).map(([id,t])=>({...t,id}));
 // The real transaction recorded for a bill occurrence, if any.
 C.billActual=(db,billId,m)=>txList(db).find(t=>t.billId===billId&&t.billMonth===m)||null;
-// Bill occurrences in month m that have no real transaction yet. Fixed bills count as
-// spent automatically; variable bills are estimates (reserved, not spent).
+// Spread bills (e.g. electricity every 2 months): the budget sets aside an equal share
+// every month, and the real bill — typed once — is split over the months it covers.
+// The bank still pays the whole bill on its own date.
+C.isSpread=b=>!!b&&b.spread===true&&Number(b.every)>1;
+// The payment month whose bill covers month m (the first payment on or after m).
+C.cycleMonth=(b,m)=>{const e=Number(b.every),d=C.monthsBetween(b.start,m);return C.addMonths(b.start,Math.ceil(d/e)*e)};
+C.coveredMonths=(b,P)=>{const e=Number(b.every),out=[];for(let i=e-1;i>=0;i--)out.push(C.addMonths(P,-i));return out};
+const paused=(b,m)=>(b.pauses||[]).some(p=>p.from<=m&&(!p.to||m<=p.to));
+const spreadIds=db=>new Set(Object.entries(db.bills||{}).filter(([,b])=>C.isSpread(b)).map(([id])=>id));
+// What the BUDGET sees in month m: bills not yet entered (fixed = spent automatically,
+// variable = an estimate that is set aside), plus each spread bill's monthly share.
 C.occurrences=(db,m)=>{
  const s=db.settings;if(!C.isMonth(m)||m<s.startMonth)return [];
  const linked=new Set(txList(db).filter(t=>t.billId).map(t=>t.billId+'|'+t.billMonth)),out=[];
  for(const [id,b] of Object.entries(db.bills||{})){
+  if(C.isSpread(b)){
+   if(!C.isMonth(b.start)||paused(b,m))continue;
+   const P=C.cycleMonth(b,m),e=Number(b.every);
+   if(!C.billOccursIn(b,P))continue;   // that bill was skipped, or is past the end
+   const v=C.billValues(b,P),actual=C.billActual(db,id,P);
+   out.push({id:'share:'+id+':'+m,virtual:true,share:true,billId:id,billMonth:P,type:'expense',date:C.dateIn(m,v.day),amount:C.round2((actual?Number(actual.amount):v.amount)/e),billAmount:actual?Number(actual.amount):v.amount,category:v.category,method:v.method,note:b.name,estimate:!actual,person:'Automatic'});
+   continue;
+  }
   if(!C.billOccursIn(b,m)||linked.has(id+'|'+m))continue;
   const v=C.billValues(b,m);
   out.push({id:'bill:'+id+':'+m,virtual:true,billId:id,billMonth:m,type:'expense',date:C.dateIn(m,v.day),amount:v.amount,category:v.category,method:v.method,note:b.name,estimate:b.kind==='variable',person:'Automatic'});
  }
  return out;
 };
-C.itemsForMonth=(db,m)=>[...txList(db).filter(t=>C.monthOf(t.date)===m),...C.occurrences(db,m)];
+// What the BANK sees in month m: bills to be paid this month that aren't entered yet,
+// at their full amount (spread bills included).
+C.paymentOccurrences=(db,m)=>{
+ const s=db.settings;if(!C.isMonth(m)||m<s.startMonth)return [];
+ const linked=new Set(txList(db).filter(t=>t.billId).map(t=>t.billId+'|'+t.billMonth)),out=[];
+ for(const [id,b] of Object.entries(db.bills||{})){
+  if(!C.billOccursIn(b,m)||linked.has(id+'|'+m))continue;
+  const v=C.billValues(b,m);
+  out.push({id:'bill:'+id+':'+m,virtual:true,billId:id,billMonth:m,type:'expense',date:C.dateIn(m,v.day),amount:v.amount,category:v.category,method:v.method,note:b.name,estimate:b.kind==='variable'||C.isSpread(b),person:'Automatic'});
+ }
+ return out;
+};
+// Budget view: a spread bill's real payment is replaced by its monthly shares.
+C.itemsForMonth=(db,m)=>{const sp=spreadIds(db);return [...txList(db).filter(t=>C.monthOf(t.date)===m&&!(t.billId&&sp.has(t.billId))),...C.occurrences(db,m)]};
+// Bank view: every real payment on its own date, plus bills still to come.
+C.paymentItemsForMonth=(db,m)=>[...txList(db).filter(t=>C.monthOf(t.date)===m),...C.paymentOccurrences(db,m)];
 
 // ---- budget --------------------------------------------------------------------
 C.categoryMonth=(db,catId,m)=>{let spent=0,reserved=0;for(const t of C.itemsForMonth(db,m)){if(t.category!==catId)continue;if(t.estimate)reserved+=Number(t.amount);else spent+=C.signed(t)}return {spent:C.round2(spent),reserved:C.round2(reserved)}};
@@ -101,7 +133,7 @@ C.cardItems=(db,cardId,month)=>{
  const s=db.settings,card=C.card(s,cardId);if(!card)return [];
  const startDate=s.startMonth+'-01',out=[];
  for(const m of [C.addMonths(month,-2),C.addMonths(month,-1),month])
-  for(const t of C.itemsForMonth(db,m))if(t.method===cardId&&C.isDate(t.date)&&t.date>=startDate&&C.dueMonthOf(t,card)===month)out.push(t);
+  for(const t of C.paymentItemsForMonth(db,m))if(t.method===cardId&&C.isDate(t.date)&&t.date>=startDate&&C.dueMonthOf(t,card)===month)out.push(t);
  // purchases moved to this statement by hand from further away
  for(const t of txList(db))if(t.method===cardId&&t.statementMonth===month&&C.isDate(t.date)&&t.date>=startDate&&C.monthsBetween(C.monthOf(t.date),month)>2)out.push(t);
  return out.sort((a,b)=>a.date.localeCompare(b.date));
@@ -121,7 +153,7 @@ C.cardCollection=(db,cardId,month)=>{
 C.bankPayments=(db,m)=>{
  const s=db.settings,banks={};
  for(const name of ['Leumi','Hapoalim'])banks[name]={bank:name,lines:[],total:0};
- for(const t of C.itemsForMonth(db,m)){const meth=C.method(s,t.method);if(!meth||meth.type!=='bank'||t.type!=='expense')continue;banks[meth.bank].lines.push({kind:'direct',date:t.date,name:t.note||'Bank payment',amount:C.round2(t.amount),estimate:!!t.estimate,item:t})}
+ for(const t of C.paymentItemsForMonth(db,m)){const meth=C.method(s,t.method);if(!meth||meth.type!=='bank'||t.type!=='expense')continue;banks[meth.bank].lines.push({kind:'direct',date:t.date,name:t.note||'Bank payment',amount:C.round2(t.amount),estimate:!!t.estimate,item:t})}
  for(const card of s.cards||[]){const col=C.cardCollection(db,card.id,m);if(!banks[card.bank])banks[card.bank]={bank:card.bank,lines:[],total:0};if(col.amount!==0||col.statement)banks[card.bank].lines.push({kind:'card',date:col.date,name:card.name,amount:col.amount,estimate:col.basis!=='statement',collection:col})}
  for(const b of Object.values(banks)){b.lines.sort((x,y)=>x.date.localeCompare(y.date)||x.name.localeCompare(y.name));b.total=C.sum(b.lines,l=>l.amount)}
  return Object.values(banks);
@@ -195,7 +227,7 @@ C.importKey=(cardId,r,n)=>C.safeId(['imp',cardId,r.date,r.amount,C.normMerchant(
 C.matchImport=(db,cardId,rows)=>{
  const s=db.settings,txs=txList(db),usedTx=new Set(),usedOcc=new Set(),seenKeys={};
  const months=[...new Set(rows.map(r=>C.monthOf(r.date)))];
- const occ=[];for(const m of new Set(months.flatMap(m=>[C.addMonths(m,-1),m,C.addMonths(m,1)])))occ.push(...C.occurrences(db,m).filter(o=>o.method===cardId));
+ const occ=[];for(const m of new Set(months.flatMap(m=>[C.addMonths(m,-1),m,C.addMonths(m,1)])))occ.push(...C.paymentOccurrences(db,m).filter(o=>o.method===cardId));
  return rows.map(r=>{
   const base=r.date+'|'+r.amount+'|'+C.normMerchant(r.merchant),n=seenKeys[base]=(seenKeys[base]||0)+1,key=C.importKey(cardId,r,n);
   const g=C.guessCategory(r.merchant,db.merchants,s.categories);
