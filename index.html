@@ -68,7 +68,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 
 <!-- ============ dialogs ============ -->
 <dialog id="dlgExpense"><form id="formExpense" novalidate><div class="mhead" id="expHead">Add a purchase</div>
- <div id="expScanWrap"><button class="secondary" type="button" id="expScan" style="width:100%">📷 Scan a receipt</button><div class="subtle" id="expScanInfo" style="margin-top:6px"></div><div id="expScanWarn" style="margin-top:6px;color:#8a5a00;font-weight:600"></div></div>
+ <div id="expScanWrap"><div class="subtle" style="margin-bottom:4px">Scan a receipt:</div><div style="display:flex;gap:8px"><button class="secondary" type="button" data-scan="camera" style="flex:1">📷 Take a photo</button><button class="secondary" type="button" data-scan="gallery" style="flex:1">🖼 Choose a photo</button></div><div class="subtle" id="expScanInfo" style="margin-top:6px"></div><div id="expScanWarn" style="margin-top:6px;color:#8a5a00;font-weight:600"></div></div>
  <label for="expAmount">How much (₪)</label><input id="expAmount" type="number" inputmode="decimal" step="any" min="0">
  <label for="expNote">What was it</label><input id="expNote" placeholder="Shufersal, fuel, pharmacy…">
  <div class="grid2"><div><label for="expCategory">Bucket</label><select id="expCategory"></select></div><div><label for="expDate">Date</label><input id="expDate" type="date"></div></div>
@@ -116,7 +116,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 <input type="file" id="fileBackup" accept=".json,application/json" class="hidden">
 
 <!-- the ?v= number must change with APP below on every update, so phones never mix an old core.js with a new page -->
-<script src="core.js?v=3.5"></script>
+<script src="core.js?v=3.6"></script>
 <script>
 // The family's Firebase project. This is not a secret: the Firestore rules decide who can read the data.
 window.FAMILY_BUDGET_FIREBASE_CONFIG = {
@@ -130,7 +130,7 @@ window.FAMILY_BUDGET_FIREBASE_CONFIG = {
 </script>
 <script>
 (()=>{'use strict';
-const C=window.BudgetCore,APP='3.5',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
+const C=window.BudgetCore,APP='3.6',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
 const el=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=x=>(Number(x)<0?'−':'')+'₪'+Math.abs(Number(x||0)).toLocaleString('en-US',{maximumFractionDigits:2});
 const monthLabel=m=>C.isMonth(m)?new Date(m+'-02T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'}):'—';
@@ -374,9 +374,11 @@ function scanError(e,A){const st=e?.status,msg=String(e?.message||e);
  if(A&&(e instanceof A.RateLimitError||st===529||st>=500))return 'Claude is busy right now. Try again in a minute.';
  if(A&&e instanceof A.APIConnectionError||!navigator.onLine)return 'No internet connection. Scanning needs internet.';
  return 'The receipt could not be read ('+msg+'). Type it in instead.'}
-el('expScan').onclick=()=>{if(!claudeKey()){showErr('expErr','To scan receipts, add your Claude key in Settings first.');return}el('fileReceipt').click()};
+// "camera" asks the phone to open the camera straight away; "gallery" picks a photo already taken
+const scanButtons=()=>document.querySelectorAll('[data-scan]');
+scanButtons().forEach(b=>b.onclick=()=>{if(!claudeKey()){showErr('expErr','To scan receipts, add your Claude key in Settings first.');return}const f=el('fileReceipt');if(b.dataset.scan==='camera')f.setAttribute('capture','environment');else f.removeAttribute('capture');f.click()});
 el('fileReceipt').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
- const info=el('expScanInfo'),btn=el('expScan');el('expScanWarn').textContent='';showErr('expErr','');info.textContent='Reading the receipt… (a few seconds)';btn.disabled=true;let A=null;
+ const info=el('expScanInfo'),busy=on=>scanButtons().forEach(b=>{b.disabled=on});el('expScanWarn').textContent='';showErr('expErr','');info.textContent='Reading the receipt… (a few seconds)';busy(true);let A=null;
  try{const x=await readReceipt(f);A=x.Anthropic;
   if(!x.readable||!(x.total>0)){info.textContent='';showErr('expErr','Could not find the total on this photo. Try a sharper photo, or type it in.');return}
   el('expAmount').value=C.round2(x.total);if(x.store)el('expNote').value=x.store;if(C.isDate(x.date))el('expDate').value=x.date;
@@ -388,7 +390,7 @@ el('fileReceipt').onchange=async e=>{const f=e.target.files[0];e.target.value=''
   el('expScanWarn').textContent=warn?'⚠ '+warn:'';
   updateExpInfo();info.textContent='Filled in from the receipt. Check it, then tap Save.'+(card||!/^\d{4}$/.test(x.card_last4)?'':' (Card ending '+x.card_last4+' is not in Settings.)')}
  catch(err){info.textContent='';if(!A)try{A=(await import(SDK_URL)).default}catch{}showErr('expErr',scanError(err,A))}
- finally{btn.disabled=false}};
+ finally{busy(false)}};
 ['expMethod','expDate','expStmt','expCategory','expRefund'].forEach(id=>el(id).addEventListener('change',updateExpInfo));
 el('expDate').addEventListener('change',()=>{el('expScanWarn').textContent=''});   // the date was checked by hand
 el('formExpense').addEventListener('submit',e=>{e.preventDefault();
