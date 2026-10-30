@@ -420,7 +420,7 @@ function loadAnyBackup(obj,raw){
 async function restoreFrom(raw){let obj;try{obj=JSON.parse(raw)}catch{throw Error('the file is not valid JSON')}
  const {next,notes,legacy,what}=loadAnyBackup(obj,raw),n=Object.keys(next.transactions).length,b=Object.keys(next.bills).length;
  if(!await ask((data?'This replaces ALL budget data':'This sets up the budget')+(store.kind==='cloud'?' for both phones':'')+' from this '+what+':\n\n'+n+' transactions, '+b+' bills, '+Object.keys(next.statements).length+' card statements.'+(data?'\n\nTip: download a backup of the current data first.':''),{title:data?'Replace all data?':'Import this file?',yes:data?'Replace everything':'Import'}))return;
- if(replaceAll(next,legacy,'Restored: '+n+' transactions and '+b+' bills.')){if(notes.length)banner(notes.join(' '),'warn');month=clampMonth(thisMonth());tab='budget';render()}}
+ if(replaceAll(next,legacy,'Restored: '+n+' transactions and '+b+' bills.')){if(notes.length)banner(notes.join(' '),'warn');monthChosen=false;tab='budget';render()}}   // the month is chosen once the new data has arrived (cloud data arrives a moment later)
 el('fileBackup').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{await restoreFrom(await f.text())}catch(err){banner('Could not restore: '+err.message+'. Nothing was changed.')}};
 
 // ---------------------------------------------------------------- Firebase connection
