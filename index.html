@@ -24,6 +24,13 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 .bank-clean-card{background:#fff;border:1px solid #e2e5e9;border-radius:18px;padding:18px 20px;margin:12px 0 16px}.bank-clean-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding-bottom:17px;border-bottom:1px solid #e8ebef;font-size:16px}.bank-clean-total{font-size:18px;white-space:nowrap}.bank-clean-lines{padding-top:12px}
 .bank-line{width:100%;background:transparent;border:0;padding:7px 0;text-align:left;color:inherit;display:flex;justify-content:space-between;align-items:baseline;gap:16px;font-size:14px;border-radius:6px}.bank-line:hover{background:#f1f5fa}.bank-line>span:first-child{min-width:0;overflow-wrap:anywhere}.bank-amount{white-space:nowrap;font-weight:500;font-variant-numeric:tabular-nums}
 .imp{width:100%;border-collapse:collapse;font-size:13px}.imp td,.imp th{padding:6px 4px;border-bottom:1px solid #edf0f5;text-align:left;vertical-align:middle}.imp select{min-height:34px;padding:5px;font-size:12px}.imp tr.flag{background:#fffaf0}.imp tr.off{opacity:.55}
+.monthrow{display:flex;align-items:center;justify-content:center;gap:8px;margin:4px 0 14px}.monthrow input{width:190px;text-align:center;font-weight:600;font-size:17px;border:0;background:transparent}.monthrow button{min-width:44px}
+.hero{text-align:center}.heronum{font-size:38px;font-weight:700;margin:4px 0;font-variant-numeric:tabular-nums}
+.bucket{display:block;width:100%;text-align:left;background:transparent;border:0;border-bottom:1px solid #edf0f5;padding:10px 2px;color:inherit;border-radius:0}.bucket:last-child{border-bottom:0}.bucket .row{align-items:baseline}.bucket .left{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}.bucket .of{font-weight:400;font-size:12px;color:#67758a}.over{color:#b12830}
+.waiting{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #edf0f5;font-size:14px}
+.shell{padding-bottom:150px}.bottombar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #e3e8ef;padding:10px 14px calc(8px + env(safe-area-inset-bottom));z-index:50}.bottombar>*{max-width:912px;margin-left:auto;margin-right:auto}.addbtn{display:block;width:100%;font-size:17px;padding:13px;font-weight:600}
+.tabbar{display:flex;justify-content:space-around;margin-top:8px}.tabbar button{border:0;background:transparent;color:#5b6b80;padding:8px 10px;border-radius:10px;font-size:14px}.tabbar button.active{background:#213d61;color:#fff}
+.dd{background:#fff4d7;border:1px solid #edce8a;border-radius:14px;padding:14px;margin-bottom:14px;color:#614b16}
 .setrow{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:end}.setrow label{margin-top:8px}
 @media(max-width:650px){.stats{grid-template-columns:1fr 1fr}.stat strong{font-size:18px}.stats .stat:last-child{grid-column:span 2}.grid2{grid-template-columns:1fr}h1{font-size:22px}.setrow{grid-template-columns:1fr 1fr}.imp .hide-sm{display:none}.monthbar{flex-direction:column;align-items:stretch}.monthnav input{flex:1;width:auto}.monthbar .actions>button{flex:1;white-space:nowrap}}
 </style></head><body><div class="shell">
@@ -35,57 +42,62 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 <section id="gate" class="card hidden"></section>
 
 <div id="main" class="hidden">
- <div class="stats"><div class="card stat"><small>Monthly income plan</small><strong id="statIncome">—</strong></div><div class="card stat"><small>Left to spend this month</small><strong id="statLeft">—</strong></div><div class="card stat"><small>Protected car reserve</small><strong id="statReserve">—</strong><div class="subtle" id="statReserveNote"></div></div></div>
- <div class="nav" id="tabs"><button data-tab="budget" class="active">Budget</button><button data-tab="transactions">Transactions</button><button data-tab="payments">Bank payments</button><button data-tab="bills">Bills</button></div>
- <div class="card"><div class="row monthbar"><div class="monthnav"><button class="secondary" type="button" data-month-step="-1" aria-label="Previous month">‹</button><input type="month" id="monthPicker" aria-label="Month"><button class="secondary" type="button" data-month-step="1" aria-label="Next month">›</button></div><div class="actions" style="margin:0"><button class="primary" type="button" data-act="add-expense">+ Expense</button><button class="secondary" type="button" data-act="add-refund">+ Refund</button></div></div></div>
+ <div class="monthrow"><button class="secondary" type="button" data-month-step="-1" aria-label="Previous month">‹</button><input type="month" id="monthPicker" aria-label="Month"><button class="secondary" type="button" data-month-step="1" aria-label="Next month">›</button></div>
 
- <section id="tab-budget" class="tab">
-  <div id="attention"></div>
-  <div class="card"><h2 id="budgetTitle">Budget</h2><p class="subtle">Purchases count in the month you buy, not when the card is collected. Fixed bills are added automatically; variable bills are only reserved until you enter the real amount.</p><div id="categoryList"></div></div>
+ <section id="tab-home" class="tab">
+  <div id="downloadDay"></div>
+  <div class="card hero"><div class="subtle">You can still spend</div><div id="heroAmount" class="heronum">—</div><div class="subtle" id="heroNote"></div></div>
+  <div class="card"><h2>Left in each bucket</h2><div id="bucketList"></div></div>
+  <div class="card"><h2>Leaving the bank this month</h2><div id="homeBanks"></div></div>
+  <p class="subtle" id="reserveNote" style="text-align:center"></p>
  </section>
- <section id="tab-transactions" class="tab hidden"><div class="card">
-  <div class="row"><h2>Transactions</h2><button class="secondary" type="button" data-act="import">⬆ Import card file</button></div>
-  <div class="row" style="margin:6px 0 10px"><select id="txFilter" aria-label="Filter by category" style="max-width:280px"></select><span id="txTotal" class="subtle"></span></div>
+ <section id="tab-spending" class="tab hidden"><div class="card">
+  <div class="row"><h2>Spending</h2><button class="secondary" type="button" data-act="import">⬆ Import card file</button></div>
+  <div class="row" style="margin:6px 0 10px"><select id="txFilter" aria-label="Show one bucket" style="max-width:280px"></select><span id="txTotal" class="subtle"></span></div>
   <div id="txList"></div></div></section>
- <section id="tab-payments" class="tab hidden"><div class="card"><h2>Bank payments</h2><div class="subtle">What each bank will pay out this month. Tap a card to see its purchases or enter the statement total.</div><div id="paymentSummary"></div><p class="subtle">Card amounts are estimates until you enter the statement total. Then the statement wins.</p></div></section>
- <section id="tab-bills" class="tab hidden"><div class="card"><div class="row"><div><h2>Bills</h2><div class="subtle">Set a bill once and it appears every month. Variable bills (electricity, water…) are reserved until you enter the real amount.</div></div><button class="primary" type="button" data-act="add-bill">+ Bill</button></div><div id="billList"></div></div></section>
+ <section id="tab-banks" class="tab hidden"><div class="card"><h2>Leaving the bank</h2><div class="subtle">Everything each bank will pay out this month. Tap a card to see what's on it.</div><div id="paymentSummary"></div></div></section>
+ <section id="tab-bills" class="tab hidden"><div class="card"><div class="row"><div><h2>Bills</h2><div class="subtle">Add a bill once and it comes back every month by itself.</div></div><button class="secondary" type="button" data-act="add-bill">+ Add a bill</button></div><div id="billList"></div></div></section>
  <section id="tab-settings" class="tab hidden"></section>
+
+ <div class="bottombar"><button class="primary addbtn" type="button" data-act="add-expense">+ Add a purchase</button>
+  <nav class="tabbar" id="tabs"><button data-tab="home" class="active">Home</button><button data-tab="spending">Spending</button><button data-tab="bills">Bills</button><button data-tab="banks">Banks</button></nav></div>
 </div>
 </div>
 
 <!-- ============ dialogs ============ -->
-<dialog id="dlgExpense"><form id="formExpense" novalidate><div class="mhead" id="expHead">Add expense</div>
- <label for="expAmount">Amount (₪)</label><input id="expAmount" type="number" inputmode="decimal" step="any" min="0">
- <div class="grid2"><div><label for="expCategory">Category</label><select id="expCategory"></select></div><div><label for="expDate">Date</label><input id="expDate" type="date"></div></div>
- <div class="grid2"><div><label for="expMethod">Paid with</label><select id="expMethod"></select></div><div id="expStmtWrap"><label for="expStmt">Card collection month</label><input id="expStmt" type="month"></div></div>
- <label for="expNote">Description</label><input id="expNote" placeholder="e.g. Yochananof">
+<dialog id="dlgExpense"><form id="formExpense" novalidate><div class="mhead" id="expHead">Add a purchase</div>
+ <label for="expAmount">How much (₪)</label><input id="expAmount" type="number" inputmode="decimal" step="any" min="0">
+ <label for="expNote">What was it</label><input id="expNote" placeholder="Shufersal, fuel, pharmacy…">
+ <div class="grid2"><div><label for="expCategory">Bucket</label><select id="expCategory"></select></div><div><label for="expDate">Date</label><input id="expDate" type="date"></div></div>
+ <label for="expMethod">Paid with</label><select id="expMethod"></select>
+ <label class="check" style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" id="expRefund"> Money back (a refund)</label>
+ <div id="expStmtWrap" class="hidden"><label for="expStmt">Card bill it appears on (only if different)</label><input id="expStmt" type="month"></div>
  <div class="subtle" id="expInfo" style="margin-top:8px"></div><div class="err hidden" id="expErr" role="alert"></div>
  <div class="actions"><button class="primary" type="submit">Save</button><button class="secondary" type="button" data-close>Cancel</button><button class="secondary danger hidden" type="button" id="expDelete">Delete</button></div></form></dialog>
 
-<dialog id="dlgActual"><form id="formActual" novalidate><div class="mhead" id="actHead">Enter actual bill</div><p class="subtle" id="actInfo"></p>
- <label for="actAmount">Actual amount (₪)</label><input id="actAmount" type="number" inputmode="decimal" step="any" min="0">
- <div class="grid2"><div><label for="actDate">Payment date</label><input id="actDate" type="date"></div><div><label for="actMethod">Paid with</label><select id="actMethod"></select></div></div>
+<dialog id="dlgActual"><form id="formActual" novalidate><div class="mhead" id="actHead">The bill arrived</div><p class="subtle" id="actInfo"></p>
+ <label for="actAmount">Amount on the bill (₪)</label><input id="actAmount" type="number" inputmode="decimal" step="any" min="0">
+ <div class="grid2"><div><label for="actDate">Date it's paid</label><input id="actDate" type="date"></div><div><label for="actMethod">Paid with</label><select id="actMethod"></select></div></div>
  <div class="err hidden" id="actErr" role="alert"></div>
- <div class="actions"><button class="primary" type="submit">Save actual bill</button><button class="secondary" type="button" data-close>Cancel</button></div></form></dialog>
+ <div class="actions"><button class="primary" type="submit">Save</button><button class="secondary" type="button" data-close>Cancel</button></div></form></dialog>
 
 <dialog id="dlgBill"><form id="formBill" novalidate><div class="mhead" id="billHead">Bill</div>
- <label for="billName">Name</label><input id="billName" placeholder="e.g. Internet">
- <div class="grid2"><div><label for="billKind">Amount type</label><select id="billKind"><option value="fixed">Fixed — same every time</option><option value="variable">Variable — reserve an estimate</option></select></div><div><label for="billAmount">Amount (₪)</label><input id="billAmount" type="number" inputmode="decimal" step="any" min="0"></div></div>
- <div class="grid2"><div><label for="billEvery">Repeats</label><select id="billEvery"><option value="1">Every month</option><option value="2">Every 2 months</option><option value="3">Every 3 months</option><option value="6">Every 6 months</option><option value="12">Every year</option><option value="0">Once only</option></select></div><div><label for="billDay">Day of month</label><input id="billDay" type="number" min="1" max="31" step="1"></div></div>
- <div class="grid2"><div><label for="billStart">First month</label><input id="billStart" type="month"></div><div><label for="billEnd">Last month (optional)</label><input id="billEnd" type="month"></div></div>
- <div class="grid2"><div><label for="billCategory">Budget category</label><select id="billCategory"></select></div><div><label for="billMethod">Paid with</label><select id="billMethod"></select></div></div>
- <div id="billFromWrap" class="hidden"><label for="billFrom">Changes to amount, day, card or category apply from</label><input id="billFrom" type="month"><div class="subtle">Earlier months keep the old values.</div></div>
+ <label for="billName">Name</label><input id="billName" placeholder="Internet, gym, kindergarten…">
+ <label for="billKind">Is the amount the same every time?</label><select id="billKind"><option value="fixed">Yes — the same every time</option><option value="variable">No — it changes (like electricity)</option></select>
+ <div class="grid2"><div><label for="billAmount" id="billAmountLabel">Amount (₪)</label><input id="billAmount" type="number" inputmode="decimal" step="any" min="0"></div><div><label for="billDay">Day of the month</label><input id="billDay" type="number" min="1" max="31" step="1"></div></div>
+ <div class="grid2"><div><label for="billEvery">How often</label><select id="billEvery"><option value="1">Every month</option><option value="2">Every 2 months</option><option value="3">Every 3 months</option><option value="6">Every 6 months</option><option value="12">Every year</option><option value="0">Just once</option></select></div><div><label for="billMethod">Paid with</label><select id="billMethod"></select></div></div>
+ <div class="grid2"><div><label for="billStart">Starts</label><input id="billStart" type="month"></div><div><label for="billEnd">Ends (leave empty if it doesn't)</label><input id="billEnd" type="month"></div></div>
+ <label for="billCategory">Bucket</label><select id="billCategory"></select>
+ <div id="billFromWrap" class="hidden"><label for="billFrom">Use the new amount or date from</label><input id="billFrom" type="month"><div class="subtle">Months before that keep the old amount.</div></div>
  <div class="err hidden" id="billErr" role="alert"></div>
- <div class="actions"><button class="primary" type="submit">Save bill</button><button class="secondary" type="button" data-close>Cancel</button><button class="secondary danger hidden" type="button" id="billDelete">Delete bill</button></div></form></dialog>
+ <div class="actions"><button class="primary" type="submit">Save</button><button class="secondary" type="button" data-close>Cancel</button><button class="secondary danger hidden" type="button" id="billDelete">Delete bill</button></div></form></dialog>
 
 <dialog id="dlgCard"><div class="row"><div class="mhead" id="cardHead">Card</div><button class="secondary" type="button" data-close>Close</button></div><div id="cardBody"></div></dialog>
 
-<dialog id="dlgStatement"><form id="formStatement" novalidate><div class="mhead" id="stHead">Statement total</div><p class="subtle" id="stInfo"></p>
- <label for="stAmount">Total the bank will collect (₪)</label><input id="stAmount" type="number" inputmode="decimal" step="any" min="0">
- <label for="stStatus">This amount is</label><select id="stStatus"><option value="final">The final statement total</option><option value="partial">Only what is known so far</option></select>
- <div id="stAsOfWrap" class="hidden"><label for="stAsOf">Known as of</label><input id="stAsOf" type="date"><div class="subtle">Purchases dated after this are added on top.</div></div>
+<dialog id="dlgStatement"><form id="formStatement" novalidate><div class="mhead" id="stHead">Card statement</div><p class="subtle" id="stInfo"></p>
+ <label for="stAmount">Amount the card company will charge (₪)</label><input id="stAmount" type="number" inputmode="decimal" step="any" min="0">
  <div class="err hidden" id="stErr" role="alert"></div>
- <div class="actions"><button class="primary" type="submit">Save</button><button class="secondary" type="button" data-close>Cancel</button><button class="secondary danger hidden" type="button" id="stDelete">Remove statement</button></div></form></dialog>
+ <div class="actions"><button class="primary" type="submit">Save</button><button class="secondary" type="button" data-close>Cancel</button><button class="secondary danger hidden" type="button" id="stDelete">Remove — add up purchases instead</button></div></form></dialog>
 
 <dialog id="dlgAsk"><div class="mhead" id="askHead">Are you sure?</div><p id="askText" style="white-space:pre-line"></p><div class="actions"><button class="primary" type="button" id="askYes">Yes</button><button class="secondary" type="button" id="askNo">Cancel</button></div></dialog>
 <dialog id="dlgImport" class="wide"><div class="mhead">Import card transactions</div><div id="impBody"></div></dialog>
@@ -167,7 +179,7 @@ class CloudStore{
 }
 
 // ---------------------------------------------------------------- app state
-let store=null,data=null,status={ready:false},user=null,month=thisMonth(),monthChosen=false,tab='budget',txFilter='';
+let store=null,data=null,status={ready:false},user=null,month=thisMonth(),monthChosen=false,tab='home',txFilter='';
 const db=()=>data;   // current data, already normalised
 function normalise(d){
  if(!d||!d.settings)return null;
@@ -198,10 +210,10 @@ function render(){
  el('gate').classList.add('hidden');el('main').classList.remove('hidden');
  if(!monthChosen){month=clampMonth(thisMonth());monthChosen=true}   // open on the first tracked month, not an empty earlier one
  renderErrors=[];
- part('summary',renderSummary);
- if(tab==='budget')part('budget',renderBudget);
- if(tab==='transactions')part('transactions',renderTransactions);
- if(tab==='payments')part('bank payments',renderPayments);
+ el('monthPicker').value=month;
+ if(tab==='home')part('home',renderHome);
+ if(tab==='spending')part('spending',renderSpending);
+ if(tab==='banks')part('banks',renderBanks);
  if(tab==='bills')part('bills',renderBills);
  // never redraw the settings form under someone's fingers (e.g. when the other phone syncs)
  if(tab==='settings'&&!(el('tab-settings').innerHTML&&el('tab-settings').contains(document.activeElement)&&document.activeElement.matches('input,select,textarea')))part('settings',renderSettings);
@@ -211,34 +223,60 @@ function render(){
 }
 function renderSync(){const p=el('syncPill');let t='',k='';
  if(!store){t='Starting…'}else if(store.kind==='local'){t='Saved on this device only';k=''}
- else if(!user){t='Not signed in';k='bad'}else if(!status.ready){t='Loading…';k='busy'}else if(status.offline){t=status.pending?'Offline · will sync':'Offline';k='busy'}else if(status.pending){t='Saving…';k='busy'}else{t='Synced ✓';k='ok'}
+ else if(!user){t='Not signed in';k='bad'}else if(!status.ready){t='Loading…';k='busy'}else if(status.offline){t=status.pending?'Offline · will sync':'Offline';k='busy'}else if(status.pending){t='Saving…';k='busy'}else{t='Up to date ✓';k='ok'}
  p.textContent=t;p.className='sync '+k}
-function renderSummary(){const s=data.settings,b=C.budget(data,month);el('monthPicker').value=month;el('statIncome').textContent=money(s.income);el('statLeft').textContent=money(b.left);el('statLeft').className=b.left<0?'negative':'';el('statReserve').textContent=money(s.accounts.carReserve);el('statReserveNote').textContent='Car balloon '+(C.isMonth(s.accounts.carReserveDue)?monthLabel(s.accounts.carReserveDue):'')+' · not spendable'}
-function renderBudget(){
- el('budgetTitle').textContent='Budget · '+monthLabel(month);
- const b=C.budget(data,month);
- el('categoryList').innerHTML=b.cats.map(c=>{const lim=Number(c.limit)||0,used=lim>0?Math.max(0,Math.min(100,(c.spent+c.reserved)/lim*100)):0,k=c.spent>lim?'over':c.spent+c.reserved>lim*.9?'warning':'';return `<div class="category"><button type="button" class="linkbtn" data-act="view-cat" data-id="${esc(c.id)}"><div class="row"><div><b>${esc(c.name)}</b>${c.rollover?'<span class="tag">Rolls over</span>':''}<div class="subtle">${money(c.spent)} spent${c.reserved?' + '+money(c.reserved)+' reserved':''} of ${money(lim)}</div></div><div style="text-align:right"><b class="amount ${c.available<0?'negative':''}">${money(c.available)}</b><div class="subtle">left</div></div></div><div class="bar"><div class="fill ${k}" style="width:${used}%"></div></div></button></div>`}).join('');
- const waiting=C.occurrences(data,month).filter(o=>o.estimate);
- el('attention').innerHTML=waiting.length?`<div class="card"><h2>Waiting for real amounts</h2><div class="subtle">These are reserved as estimates. Enter the real bill when it arrives — the estimate is replaced, never added twice.</div>${waiting.map(o=>`<div class="tx"><div><strong>${esc(o.note)}</strong><span class="subtle">${dayLabel(o.date)} · estimate ${money(o.amount)} · ${esc(methodName(o.method))}</span></div><button class="secondary small" type="button" data-act="actual" data-bill="${esc(o.billId)}" data-month="${esc(month)}">Enter actual</button></div>`).join('')}</div>`:'';
+
+// ---- Home: the three questions, in plain words ----------------------------------
+let showAllBuckets=false;
+// Bills that haven't arrived yet this month (we count their usual amount meanwhile).
+const notInYet=m=>C.occurrences(data,m).filter(o=>o.estimate);
+function bucketRow(c){
+ const lim=Number(c.limit)||0,used=c.spent+c.reserved,carry=C.round2(c.available-(lim-used)),room=Math.max(lim+Math.max(carry,0),1),pct=Math.max(0,Math.min(100,used/room*100)),over=c.available<0;
+ const note=carry>0.5?'includes '+money(carry)+' saved from earlier months':carry<-0.5?money(-carry)+' less because of overspending earlier':'';
+ return `<button type="button" class="bucket" data-act="view-cat" data-id="${esc(c.id)}"><div class="row"><span>${esc(c.name)}</span><span class="left ${over?'over':''}">${over?money(-c.available)+' over':money(c.available)+' left'} <span class="of">of ${money(lim)}</span></span></div>${note?`<div class="subtle" style="margin-top:2px">${note}</div>`:''}<div class="bar"><div class="fill ${over?'over':pct>85?'warning':''}" style="width:${pct}%"></div></div></button>`}
+function renderHome(){
+ const s=data.settings,b=C.budget(data,month),spendable=b.cats.filter(c=>c.id!=='savings'&&c.id!=='bills');
+ const left=C.sum(spendable,c=>c.available),billsLeft=b.cats.find(c=>c.id==='bills');
+ el('heroAmount').textContent=left<0?money(-left)+' over':money(left);el('heroAmount').className='heronum'+(left<0?' over':'');
+ el('heroNote').textContent='this month, after your bills'+(billsLeft&&billsLeft.available<0?' (bills are '+money(-billsLeft.available)+' over their budget)':'');
+ // buckets: the first four, plus any that are over; everything with one tap
+ const list=b.cats.filter(c=>c.id!=='bills'),shown=showAllBuckets?list:list.filter((c,i)=>i<4||c.available<0);
+ el('bucketList').innerHTML=shown.map(bucketRow).join('')+(list.length>shown.length||showAllBuckets?`<button type="button" class="linkbtn" data-act="toggle-buckets" style="color:#245a88;padding:10px 2px;font-size:14px">${showAllBuckets?'Show fewer':'Show all '+list.length+' buckets'}</button>`:'');
+ // banks
+ const banks=C.bankPayments(data,month),waiting=notInYet(month);
+ el('homeBanks').innerHTML=banks.map(x=>`<button type="button" class="bank-line" data-tab="banks"><span>${esc(x.bank)}</span><span class="bank-amount"><b>${money(x.total)}</b></span></button>`).join('')+
+  (waiting.length?`<div class="subtle" style="margin:10px 0 2px">Bills not in yet — counting the usual amount for now:</div>`+waiting.map(o=>`<div class="waiting"><span>${esc(o.note)} <span class="subtle">${money(o.amount)}</span></span><button class="secondary small" type="button" data-act="actual" data-bill="${esc(o.billId)}" data-month="${esc(month)}">It arrived</button></div>`).join(''):'');
+ // download day: the day after the last card collection
+ const dd=Math.min(28,Math.max(...s.cards.map(c=>Number(c.day)||1),1)+1),done=lsGet('familyBudgetDownloaded')===month;
+ el('downloadDay').innerHTML=month===thisMonth()&&Number(today().slice(8))>=dd&&!done?`<div class="dd"><b>Download day</b><div style="margin:6px 0 10px">All cards have been charged this month. Download each card's transactions from its website and import them here.</div><div class="actions" style="margin:0"><button class="primary" type="button" data-act="import">⬆ Import a card file</button><button class="secondary" type="button" data-act="downloaded">Done for this month</button></div></div>`:'';
+ el('reserveNote').textContent=s.accounts.carReserve?'Car balloon reserve of '+money(s.accounts.carReserve)+' is set aside'+(C.isMonth(s.accounts.carReserveDue)?' for '+monthLabel(s.accounts.carReserveDue):'')+' and never counted as spending money.':'';
 }
-function txRow(t){const est=t.estimate,link=t.billId&&!t.virtual;return `<div class="tx"><div><strong>${esc(t.note||catName(t.category))}</strong><span class="subtle">${esc(t.date)} · ${esc(catName(t.category))} · ${esc(methodName(t.method))}${t.person?' · '+esc(t.person):''}</span>${t.virtual&&!est?'<span class="tag">Automatic bill</span>':''}${est?'<span class="tag est">Estimate</span>':''}${link?'<span class="tag ok">Bill paid</span>':''}</div><div style="text-align:right"><strong class="amount ${t.type==='refund'?'positive':est?'muted':''}">${t.type==='refund'?'+':''}${money(t.amount)}</strong><div class="actions" style="margin-top:4px;justify-content:flex-end">${est?`<button class="secondary small" type="button" data-act="actual" data-bill="${esc(t.billId)}" data-month="${esc(t.billMonth)}">Enter actual</button>`:`<button class="secondary small" type="button" data-act="edit-tx" data-id="${esc(t.id)}">Edit</button>`}</div></div></div>`}
-function renderTransactions(){
- const f=el('txFilter');f.innerHTML='<option value="">All categories</option>'+data.settings.categories.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');f.value=txFilter;
+
+// ---- Spending ------------------------------------------------------------------
+function txRow(t){const waiting=t.estimate,auto=t.virtual&&!waiting,paidBill=t.billId&&!t.virtual;
+ const tag=waiting?'<span class="tag est">Not in yet — usual amount</span>':auto?'<span class="tag">Regular bill</span>':paidBill?'<span class="tag ok">Bill</span>':'';
+ return `<div class="tx"><div><strong>${esc(t.note||catName(t.category))}</strong><span class="subtle">${esc(dayLabel(t.date))} · ${esc(catName(t.category))} · ${esc(methodName(t.method))}${t.person&&t.person!=='Automatic'?' · '+esc(t.person):''}</span>${tag}</div><div style="text-align:right"><strong class="amount ${t.type==='refund'?'positive':waiting?'muted':''}">${t.type==='refund'?'+':''}${money(t.amount)}</strong><div class="actions" style="margin-top:4px;justify-content:flex-end">${waiting?`<button class="secondary small" type="button" data-act="actual" data-bill="${esc(t.billId)}" data-month="${esc(t.billMonth)}">It arrived</button>`:`<button class="secondary small" type="button" data-act="edit-tx" data-id="${esc(t.id)}">Change</button>`}</div></div></div>`}
+function renderSpending(){
+ const f=el('txFilter');f.innerHTML='<option value="">All buckets</option>'+data.settings.categories.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');f.value=txFilter;
  const items=C.itemsForMonth(data,month).filter(t=>!txFilter||t.category===txFilter).sort((a,b)=>b.date.localeCompare(a.date));
  const net=C.sum(items.filter(t=>!t.estimate),C.signed),est=C.sum(items.filter(t=>t.estimate),t=>t.amount);
- el('txTotal').textContent=items.length+' items · spent '+money(net)+(est?' · reserved '+money(est):'');
- el('txList').innerHTML=items.length?items.map(txRow).join(''):'<div class="empty">Nothing recorded for '+esc(monthLabel(month))+' yet.</div>';
+ el('txTotal').textContent='Spent '+money(net)+(est?' + '+money(est)+' in bills not in yet':'');
+ el('txList').innerHTML=items.length?items.map(txRow).join(''):'<div class="empty">Nothing spent in '+esc(monthLabel(month))+' yet.</div>';
 }
-function renderPayments(){
- el('paymentSummary').innerHTML=C.bankPayments(data,month).map(b=>`<section class="bank-clean-card" aria-label="${esc(b.bank)} payments"><div class="bank-clean-head"><strong>${esc(b.bank)}</strong><strong class="bank-clean-total">${money(b.total)}</strong></div><div class="bank-clean-lines">${b.lines.length?b.lines.map(l=>l.kind==='card'?`<button type="button" class="bank-line" data-act="card" data-card="${esc(l.collection.cardId)}"><span>${esc(l.name)} · ${dayLabel(l.date)}${l.collection.basis==='statement'?' <span class="tag ok">statement</span>':''}</span><span class="bank-amount">${money(l.amount)}</span></button>`:`<button type="button" class="bank-line" data-act="${l.item.estimate?'actual':'edit-tx'}" data-id="${esc(l.item.id)}" data-bill="${esc(l.item.billId||'')}" data-month="${esc(l.item.billMonth||'')}"><span>${esc(l.name)}${l.estimate?' <span class="tag est">estimate</span>':''}</span><span class="bank-amount">${money(l.amount)}</span></button>`).join(''):'<p class="subtle">No payments expected.</p>'}</div></section>`).join('');
+
+// ---- Banks ---------------------------------------------------------------------
+function renderBanks(){
+ el('paymentSummary').innerHTML=C.bankPayments(data,month).map(b=>`<section class="bank-clean-card" aria-label="${esc(b.bank)} payments"><div class="bank-clean-head"><strong>${esc(b.bank)}</strong><strong class="bank-clean-total">${money(b.total)}</strong></div><div class="bank-clean-lines">${b.lines.length?b.lines.map(l=>l.kind==='card'?`<button type="button" class="bank-line" data-act="card" data-card="${esc(l.collection.cardId)}"><span>${esc(l.name)} · ${dayLabel(l.date)} <span class="subtle">${l.collection.basis==='statement'?'from statement':'expected'}</span></span><span class="bank-amount">${money(l.amount)}</span></button>`:`<button type="button" class="bank-line" data-act="${l.item.estimate?'actual':'edit-tx'}" data-id="${esc(l.item.id)}" data-bill="${esc(l.item.billId||'')}" data-month="${esc(l.item.billMonth||'')}"><span>${esc(l.name)}${l.estimate?' <span class="subtle">not in yet</span>':''}</span><span class="bank-amount">${money(l.amount)}</span></button>`).join(''):'<p class="subtle">Nothing leaving this bank this month.</p>'}</div></section>`).join('');
 }
-function scheduleText(b){const e=Number(b.every);const v=C.billValues(b,clampMonth(month));return (e===0?'Once, '+monthLabel(b.start):e===1?'Monthly':e===12?'Yearly':'Every '+e+' months')+' · day '+v.day+' · '+methodName(v.method)+(b.end&&e!==0?' · until '+monthLabel(b.end):'')}
+
+// ---- Bills ---------------------------------------------------------------------
+function scheduleText(b){const e=Number(b.every);const v=C.billValues(b,clampMonth(month));return (e===0?'Once, '+monthLabel(b.start):e===1?'Every month':e===12?'Every year':'Every '+e+' months')+' on the '+v.day+(v.day===1?'st':v.day===2?'nd':v.day===3?'rd':'th')+' · '+methodName(v.method)+(b.end&&e!==0?' · until '+monthLabel(b.end):'')}
 function renderBills(){
  const all=Object.values(data.bills).sort((a,b)=>a.name.localeCompare(b.name)),m=month;
- const group=(title,list)=>list.length?`<h3>${title}</h3>`+list.map(b=>{const v=C.billValues(b,m),occurs=C.billOccursIn(b,m),actual=C.billActual(data,b.id,m),paused=(b.pauses||[]).some(p=>p.from<=m&&(!p.to||m<=p.to));let st='';
-  if(paused)st='<span class="tag">Paused</span>';else if(!occurs)st='<span class="subtle">Not due in '+esc(monthLabel(m))+'</span>';else if(actual)st=`<span class="tag ok">Paid ${money(actual.amount)}</span>`;else if(b.kind==='variable')st=`<span class="tag est">Estimate ${money(v.amount)}</span> <button class="secondary small" type="button" data-act="actual" data-bill="${esc(b.id)}" data-month="${esc(m)}">Enter actual</button>`;else st='<span class="tag">Automatic</span>';
-  return `<div class="tx"><div><strong>${esc(b.name)}</strong><span class="subtle">${money(v.amount)} · ${esc(scheduleText(b))}</span><div style="margin-top:4px">${st}</div></div><div style="text-align:right"><div class="actions" style="margin-top:0;justify-content:flex-end"><button class="secondary small" type="button" data-act="edit-bill" data-id="${esc(b.id)}">Edit</button>${Number(b.every)!==0?`<button class="secondary small" type="button" data-act="pause-bill" data-id="${esc(b.id)}">${paused?'Resume':'Pause'}</button>`:''}</div></div></div>`}).join(''):'';
- el('billList').innerHTML=(group('Fixed',all.filter(b=>b.kind!=='variable'&&Number(b.every)!==0))+group('Variable',all.filter(b=>b.kind==='variable'&&Number(b.every)!==0))+group('One-off',all.filter(b=>Number(b.every)===0)))||'<div class="empty">No bills yet.</div>';
+ const group=(title,hint,list)=>list.length?`<h3>${title}</h3><div class="subtle" style="margin-bottom:4px">${hint}</div>`+list.map(b=>{const v=C.billValues(b,m),occurs=C.billOccursIn(b,m),actual=C.billActual(data,b.id,m),paused=(b.pauses||[]).some(p=>p.from<=m&&(!p.to||m<=p.to));let st='';
+  if(paused)st='<span class="tag">Stopped for now</span>';else if(!occurs)st='<span class="subtle">Nothing due in '+esc(monthLabel(m))+'</span>';else if(actual)st=`<span class="tag ok">Arrived · ${money(actual.amount)}</span>`;else if(b.kind==='variable')st=`<span class="tag est">Not in yet · counting ${money(v.amount)}</span> <button class="secondary small" type="button" data-act="actual" data-bill="${esc(b.id)}" data-month="${esc(m)}">It arrived</button>`;else st='<span class="tag">Added automatically</span>';
+  return `<div class="tx"><div><strong>${esc(b.name)}</strong><span class="subtle">${money(v.amount)} · ${esc(scheduleText(b))}</span><div style="margin-top:4px">${st}</div></div><div style="text-align:right"><div class="actions" style="margin-top:0;justify-content:flex-end"><button class="secondary small" type="button" data-act="edit-bill" data-id="${esc(b.id)}">Change</button>${Number(b.every)!==0?`<button class="secondary small" type="button" data-act="pause-bill" data-id="${esc(b.id)}">${paused?'Start again':'Stop'}</button>`:''}</div></div></div>`}).join(''):'';
+ el('billList').innerHTML=(group('Same amount every time','Added to your spending automatically.',all.filter(b=>b.kind!=='variable'&&Number(b.every)!==0))+group('Amount changes','We count the usual amount until you tap “It arrived” and type the real one.',all.filter(b=>b.kind==='variable'&&Number(b.every)!==0))+group('One time','A single payment you know is coming.',all.filter(b=>Number(b.every)===0)))||'<div class="empty">No bills yet.</div>';
 }
 
 // ---------------------------------------------------------------- first run / sign in
@@ -260,84 +298,93 @@ function renderGate(){
 let editTx=null,expType='expense';
 function openExpense(type='expense',tx=null){
  editTx=tx;expType=tx?tx.type:type;const s=data.settings;
- el('expHead').textContent=tx?(tx.virtual?'Edit this month’s '+tx.note:'Edit transaction'):type==='refund'?'Record a refund':'Add expense';
+ el('expHead').textContent=tx?(tx.virtual?tx.note+' — '+monthLabel(tx.billMonth):'Change this purchase'):'Add a purchase';el('expRefund').checked=expType==='refund';
  el('expAmount').value=tx?tx.amount:'';el('expCategory').innerHTML=catOptions(tx?.category||'groceries',tx?.category);
  el('expDate').value=tx?.date||(thisMonth()===month?today():month+'-01');el('expMethod').innerHTML=methodOptions(tx?.method||s.cards[0]?.id);
  el('expStmt').value=tx?.statementMonth||'';el('expNote').value=tx?.note||'';showErr('expErr','');
  el('expDelete').classList.toggle('hidden',!tx);el('expDelete').textContent=tx?.virtual?'Skip this month':'Delete';
  updateExpInfo();openDlg('dlgExpense');
 }
-function updateExpInfo(){const m=C.method(data.settings,el('expMethod').value),d=el('expDate').value;el('expStmtWrap').classList.toggle('hidden',m?.type!=='card');
- let t=expType==='refund'?'Record a refund only once the money has arrived. It goes back into the category.':'Counts in the month of the purchase. A card collection later is not a second expense.';
- if(m?.type==='card'&&C.isDate(d)){const due=C.isMonth(el('expStmt').value)?el('expStmt').value:C.collectionMonth(d,m);t+=' Expected on the '+m.name+' collection of '+dayLabel(C.collectionDate(due,m))+(el('expStmt').value?' (chosen by you).':' (estimated: on or after day '+m.day+' moves to the next month).')}
+// One plain sentence: which month's budget it counts in, and when the bank pays it.
+function updateExpInfo(){const m=C.method(data.settings,el('expMethod').value),d=el('expDate').value,refund=el('expRefund').checked;
+ // the "different card bill" field is only for fixing a purchase the card company billed late
+ el('expStmtWrap').classList.toggle('hidden',!(editTx&&!editTx.virtual&&m?.type==='card'));
+ if(!C.isDate(d)){el('expInfo').textContent='';return}
+ let t=refund?'Goes back into '+catName(el('expCategory').value)+' for '+monthLabel(C.monthOf(d))+'. Only add it once the money is back.':'Counts in '+monthLabel(C.monthOf(d))+'.';
+ if(!refund&&m?.type==='card'){const due=C.isMonth(el('expStmt').value)?el('expStmt').value:C.collectionMonth(d,m);t+=' The bank pays it with the '+m.name+' bill on '+dayLabel(C.collectionDate(due,m))+'.'}
  el('expInfo').textContent=t}
-['expMethod','expDate','expStmt'].forEach(id=>el(id).addEventListener('change',updateExpInfo));
+['expMethod','expDate','expStmt','expCategory','expRefund'].forEach(id=>el(id).addEventListener('change',updateExpInfo));
 el('formExpense').addEventListener('submit',e=>{e.preventDefault();
  const amount=C.round2(el('expAmount').value),date=el('expDate').value,cat=el('expCategory').value,method=el('expMethod').value;
- if(!(amount>0))return showErr('expErr','Enter an amount above zero.');if(!C.isDate(date))return showErr('expErr','Choose a date.');if(!cat)return showErr('expErr','Choose a category.');
+ if(!(amount>0))return showErr('expErr','Type how much it was.');if(!C.isDate(date))return showErr('expErr','Choose the date.');if(!cat)return showErr('expErr','Choose a bucket.');
  const base=editTx&&!editTx.virtual?data.transactions[editTx.id]||{}:{};
- const t={...base,type:expType,amount,date,category:cat,method,note:el('expNote').value.trim(),person:base.person||person(),updatedAt:new Date().toISOString()};
+ const t={...base,type:el('expRefund').checked?'refund':'expense',amount,date,category:cat,method,note:el('expNote').value.trim(),person:base.person||person(),updatedAt:new Date().toISOString()};
  if(C.method(data.settings,method)?.type==='card'&&C.isMonth(el('expStmt').value))t.statementMonth=el('expStmt').value;else delete t.statementMonth;
  if(editTx?.virtual){t.billId=editTx.billId;t.billMonth=editTx.billMonth}
  const id=editTx&&!editTx.virtual?editTx.id:C.newId(),ops=[{op:'set',coll:'transactions',id,data:t}];
  // learn the category for this shop when you correct an imported purchase
  if(base.merchant&&base.category!==cat)ops.push({op:'set',coll:'merchants',id:C.safeId(C.normMerchant(base.merchant)),data:{category:cat}});
- if(write(ops,(editTx?'Updated: ':'Saved: ')+money(amount)+' · '+catName(cat)+' · '+monthLabel(C.monthOf(date))+'.')){closeDlg('dlgExpense');month=C.monthOf(date);render()}
+ if(write(ops,'Saved: '+money(amount)+' in '+catName(cat)+' ('+monthLabel(C.monthOf(date))+').')){closeDlg('dlgExpense');month=C.monthOf(date);render()}
 });
 el('expDelete').onclick=async()=>{if(!editTx)return;
- if(editTx.virtual){const b=data.bills[editTx.billId];if(!b||!await ask('Skip '+b.name+' for '+monthLabel(editTx.billMonth)+'? Other months are not affected.',{yes:'Skip this month'}))return;write([{op:'set',coll:'bills',id:b.id,data:{...b,skipped:[...new Set([...(b.skipped||[]),editTx.billMonth])]}}],b.name+' skipped for '+monthLabel(editTx.billMonth)+'.')}
- else{if(!await ask('Delete '+(editTx.note||'this transaction')+' ('+money(editTx.amount)+')?'+(editTx.billId?' The bill goes back to its automatic amount or estimate for that month.':''),{yes:'Delete'}))return;write([{op:'delete',coll:'transactions',id:editTx.id}],'Transaction deleted.')}
+ if(editTx.virtual){const b=data.bills[editTx.billId];if(!b||!await ask('Leave out '+b.name+' in '+monthLabel(editTx.billMonth)+' only? Other months stay the same.',{title:'Skip this month?',yes:'Skip this month'}))return;write([{op:'set',coll:'bills',id:b.id,data:{...b,skipped:[...new Set([...(b.skipped||[]),editTx.billMonth])]}}],b.name+' left out of '+monthLabel(editTx.billMonth)+'.')}
+ else{if(!await ask('Delete '+(editTx.note||'this purchase')+' ('+money(editTx.amount)+')?'+(editTx.billId?' The bill goes back to its usual amount for that month.':''),{title:'Delete?',yes:'Delete'}))return;write([{op:'delete',coll:'transactions',id:editTx.id}],'Deleted.')}
  closeDlg('dlgExpense');render()};
 
 // ---------------------------------------------------------------- actual bill amounts
 let actCtx=null;
 function openActual(billId,m){const b=data.bills[billId];if(!b)return banner('That bill no longer exists.','warn');const v=C.billValues(b,m),existing=C.billActual(data,billId,m);actCtx={b,m,existing};
- el('actHead').textContent=b.name+' — '+monthLabel(m);el('actInfo').textContent='Estimate '+money(v.amount)+'. The real amount replaces the estimate; it is not added on top.';
+ el('actHead').textContent=b.name+' bill — '+monthLabel(m);el('actInfo').textContent=existing?'You entered '+money(existing.amount)+'. Change it if needed.':'Until now we counted the usual '+money(v.amount)+'. Type what the bill really says; it replaces that amount, it is not added on top.';
  el('actAmount').value=existing?existing.amount:'';el('actDate').value=existing?.date||C.dateIn(m,v.day);el('actMethod').innerHTML=methodOptions(existing?.method||v.method);showErr('actErr','');openDlg('dlgActual')}
 el('formActual').addEventListener('submit',e=>{e.preventDefault();if(!actCtx)return;const {b,m,existing}=actCtx,amount=C.round2(el('actAmount').value),date=el('actDate').value;
- if(!(amount>0))return showErr('actErr','Enter the amount on the bill.');if(!C.isDate(date))return showErr('actErr','Choose the payment date.');
+ if(!(amount>0))return showErr('actErr','Type the amount on the bill.');if(!C.isDate(date))return showErr('actErr','Choose the date it is paid.');
  const v=C.billValues(b,m),id=existing?.id||C.safeId('bill-'+b.id+'-'+m);
  if(write([{op:'set',coll:'transactions',id,data:{...(existing?data.transactions[existing.id]:{}),type:'expense',amount,date,category:v.category,method:el('actMethod').value,note:b.name,person:existing?.person||person(),billId:b.id,billMonth:m,updatedAt:new Date().toISOString()}}],b.name+' saved: '+money(amount)+' for '+monthLabel(m)+'.')){closeDlg('dlgActual');render()}});
 
 // ---------------------------------------------------------------- bills
 let editBill=null;
 function openBill(b=null){editBill=b;const m=clampMonth(month),v=b?C.billValues(b,m):null;
- el('billHead').textContent=b?'Edit '+b.name:'Add bill';el('billName').value=b?.name||'';el('billKind').value=b?.kind||'fixed';el('billAmount').value=v?.amount??'';el('billEvery').value=String(b?.every??1);el('billDay').value=v?.day||1;el('billStart').value=b?.start||m;el('billEnd').value=b?.end||'';
+ el('billHead').textContent=b?b.name:'Add a bill';el('billName').value=b?.name||'';el('billKind').value=b?.kind||'fixed';el('billAmount').value=v?.amount??'';el('billEvery').value=String(b?.every??1);el('billDay').value=v?.day||1;el('billStart').value=b?.start||m;el('billEnd').value=b?.end||'';
  el('billCategory').innerHTML=catOptions(v?.category||'bills',v?.category);el('billMethod').innerHTML=methodOptions(v?.method||'bank-hapoalim');
- el('billFromWrap').classList.toggle('hidden',!b);el('billFrom').value=b?(m>b.start?m:b.start):'';el('billDelete').classList.toggle('hidden',!b);showErr('billErr','');openDlg('dlgBill')}
+ el('billFromWrap').classList.toggle('hidden',!b);el('billFrom').value=b?(m>b.start?m:b.start):'';el('billDelete').classList.toggle('hidden',!b);showErr('billErr','');billKindLabel();openDlg('dlgBill')}
+const billKindLabel=()=>{el('billAmountLabel').textContent=el('billKind').value==='variable'?'Usual amount (₪)':'Amount (₪)'};
+el('billKind').addEventListener('change',billKindLabel);
 el('formBill').addEventListener('submit',e=>{e.preventDefault();
  const name=el('billName').value.trim(),amount=C.round2(el('billAmount').value),day=Number(el('billDay').value),every=Number(el('billEvery').value),start=el('billStart').value,end=el('billEnd').value,from=el('billFrom').value;
- if(!name)return showErr('billErr','Give the bill a name.');if(!(amount>0))return showErr('billErr','Enter an amount above zero.');if(!(day>=1&&day<=31))return showErr('billErr','Day must be 1–31.');if(!C.isMonth(start))return showErr('billErr','Choose the first month.');if(end&&end<start)return showErr('billErr','The last month is before the first month.');
+ if(!name)return showErr('billErr','Give the bill a name.');if(!(amount>0))return showErr('billErr','Enter an amount above zero.');if(!(day>=1&&day<=31))return showErr('billErr','The day must be between 1 and 31.');if(!C.isMonth(start))return showErr('billErr','Choose when it starts.');if(end&&end<start)return showErr('billErr','It ends before it starts.');
  const vals={amount,day,method:el('billMethod').value,category:el('billCategory').value};
  let b;
  if(!editBill)b={id:C.safeId('b-'+C.newId()),name,kind:el('billKind').value,every,start,end:every===0?'':end,pauses:[],skipped:[],changes:[],...vals};
  else{b={...editBill,name,kind:el('billKind').value,every,start,end:every===0?'':end};const cur=C.billValues(editBill,C.isMonth(from)?from:start),changed=Object.keys(vals).filter(k=>String(vals[k])!==String(cur[k]));
   if(changed.length){if(!C.isMonth(from)||from<=start){Object.assign(b,vals);b.changes=(b.changes||[]).filter(c=>c.from>start)}else{const ch={from};changed.forEach(k=>ch[k]=vals[k]);b.changes=[...(b.changes||[]).filter(c=>c.from!==from),ch]}}}
- if(write([{op:'set',coll:'bills',id:b.id,data:b}],'Bill "'+name+'" saved.')){closeDlg('dlgBill');render()}});
-el('billDelete').onclick=async()=>{if(!editBill||!await ask('Delete '+editBill.name+' completely? It disappears from every month, including past ones. Amounts you already entered for it are kept as normal transactions.\n\nTo stop a bill from now on, use Pause or set a last month instead.',{yes:'Delete bill'}))return;write([{op:'delete',coll:'bills',id:editBill.id}],editBill.name+' deleted.');closeDlg('dlgBill');render()};
+ if(write([{op:'set',coll:'bills',id:b.id,data:b}],name+' saved.')){closeDlg('dlgBill');render()}});
+el('billDelete').onclick=async()=>{if(!editBill||!await ask('Delete '+editBill.name+' completely? It disappears from every month, including past ones. Amounts you already typed for it stay as normal purchases.\n\nIf it just stopped, use “Stop” instead — past months then stay as they were.',{title:'Delete this bill?',yes:'Delete bill'}))return;write([{op:'delete',coll:'bills',id:editBill.id}],editBill.name+' deleted.');closeDlg('dlgBill');render()};
 function togglePause(b){const m=clampMonth(thisMonth()),pauses=[...(b.pauses||[])],open=pauses.find(p=>p.from<=clampMonth(month)&&(!p.to||clampMonth(month)<=p.to));
- if(open){open.to=C.addMonths(m,-1);const kept=pauses.filter(p=>!(p.to&&p.to<p.from));write([{op:'set',coll:'bills',id:b.id,data:{...b,pauses:kept}}],b.name+' resumed from '+monthLabel(m)+'.')}
- else{pauses.push({from:m});write([{op:'set',coll:'bills',id:b.id,data:{...b,pauses}}],b.name+' paused from '+monthLabel(m)+'. Earlier months are unchanged.')}render()}
+ if(open){open.to=C.addMonths(m,-1);const kept=pauses.filter(p=>!(p.to&&p.to<p.from));write([{op:'set',coll:'bills',id:b.id,data:{...b,pauses:kept}}],b.name+' starts again from '+monthLabel(m)+'.')}
+ else{pauses.push({from:m});write([{op:'set',coll:'bills',id:b.id,data:{...b,pauses}}],b.name+' stopped from '+monthLabel(m)+'. Earlier months stay as they were.')}render()}
 
 // ---------------------------------------------------------------- card details & statements
 let cardCtx=null;
 function openCard(cardId,m){const col=C.cardCollection(data,cardId,m);if(!col.card)return;cardCtx={cardId,m};
- el('cardHead').textContent=col.card.name;
- const basis=col.basis==='statement'?`Statement total entered. Purchases recorded in the app for this collection: ${money(col.tracked)}${Math.abs(col.amount-col.tracked)>0.009?' (the difference of '+money(C.round2(col.amount-col.tracked))+' is purchases not recorded here, or recorded ones that the card company bills later).':'.'}`:col.basis==='partial'?`${money(col.statement.amount)} was known on ${esc(dayLabel(col.statement.asOf))}, plus ${money(C.sum(col.added,C.signed))} recorded since.`:`Estimate from ${col.items.length} recorded item${col.items.length===1?'':'s'}. Enter the statement total when it arrives and it replaces this estimate.`;
- el('cardBody').innerHTML=`<p class="subtle">${esc(col.card.bank)} · collected ${esc(dayLabel(col.date))}</p><div class="row" style="margin:10px 0"><strong>Expected collection</strong><strong class="amount" style="font-size:22px">${money(col.amount)}</strong></div><div class="hint">${basis}${col.hasEstimates?' Includes estimated bills.':''}</div>
- <h3>Recorded for this collection</h3>${col.items.length?col.items.map(t=>`<div class="tx"><div><strong>${esc(t.note||catName(t.category))}</strong><span class="subtle">${esc(t.date)} · ${esc(catName(t.category))}${t.virtual?' · automatic bill':''}${t.estimate?' · estimate':''}${col.basis==='partial'&&!col.added.includes(t)?' · in the known amount':''}</span></div><strong class="amount">${t.type==='refund'?'+':''}${money(t.amount)}</strong></div>`).join(''):'<p class="subtle">Nothing recorded for this collection.</p>'}
- <div class="actions"><button class="primary" type="button" data-act="statement">${col.statement?'Change statement total':'Enter statement total'}</button><button class="secondary" type="button" data-act="import" data-card="${esc(cardId)}">⬆ Import card file</button></div>`;
+ el('cardHead').textContent=col.card.name+' — '+dayLabel(col.date);
+ const diff=C.round2(col.amount-col.tracked);
+ const how=col.basis==='statement'?`This is the amount you entered from the card company's statement.${Math.abs(diff)>0.009?' The purchases below add up to '+money(col.tracked)+'; the '+money(Math.abs(diff))+' difference is '+(diff>0?'purchases that were not added here':'purchases the card company will charge next time')+'. That is normal.':''}`
+  :col.basis==='partial'?`The card company showed ${money(col.statement.amount)} on ${esc(dayLabel(col.statement.asOf))}. Everything bought since then is added on top.`
+  :`This adds up the ${col.items.length} purchase${col.items.length===1?'':'s'} below. When the card company's statement is ready, type its total here and that number is used instead.`;
+ el('cardBody').innerHTML=`<p class="subtle">Taken from ${esc(col.card.bank)} on ${esc(dayLabel(col.date))}</p><div class="row" style="margin:10px 0"><strong>The bank will take${col.basis==='statement'?'':' about'}</strong><strong class="amount" style="font-size:22px">${money(col.amount)}</strong></div><div class="hint">${how}${col.hasEstimates?' It includes bills that are not in yet, at their usual amount.':''}</div>
+ <h3>On this card bill</h3>${col.items.length?col.items.map(t=>`<div class="tx"><div><strong>${esc(t.note||catName(t.category))}</strong><span class="subtle">${esc(dayLabel(t.date))} · ${esc(catName(t.category))}${t.virtual&&!t.estimate?' · regular bill':''}${t.estimate?' · not in yet':''}${col.basis==='partial'&&!col.added.includes(t)?' · already in the card company figure':''}</span></div><strong class="amount">${t.type==='refund'?'+':''}${money(t.amount)}</strong></div>`).join(''):'<p class="subtle">Nothing on this card bill yet.</p>'}
+ <div class="actions"><button class="primary" type="button" data-act="statement">${col.basis==='statement'?'Change the statement total':'Type the statement total'}</button><button class="secondary" type="button" data-act="import" data-card="${esc(cardId)}">⬆ Import card file</button></div>`;
  openDlg('dlgCard')}
+// Typing a statement total always replaces the app's own figure (the "known so far"
+// figures from the start file are only ever replaced, never created here).
 function openStatement(){if(!cardCtx)return;const {cardId,m}=cardCtx,col=C.cardCollection(data,cardId,m),st=col.statement;
- el('stHead').textContent=col.card.name+' — '+monthLabel(m);el('stInfo').textContent='Use the total from the card app or statement for the '+dayLabel(col.date)+' collection. It replaces the estimate.'+(st?.status==='partial'?' (Saved now: '+money(st.amount)+' known on '+dayLabel(st.asOf)+'.)':'');
- // a typed statement total is normally the final one, even if a "known so far" amount was saved before
- el('stAmount').value=st?.status==='final'?st.amount:'';el('stStatus').value='final';el('stAsOf').value=st?.asOf||today();el('stAsOfWrap').classList.toggle('hidden',el('stStatus').value!=='partial');el('stDelete').classList.toggle('hidden',!st);showErr('stErr','');closeDlg('dlgCard');openDlg('dlgStatement')}
-el('stStatus').addEventListener('change',()=>el('stAsOfWrap').classList.toggle('hidden',el('stStatus').value!=='partial'));
-el('formStatement').addEventListener('submit',e=>{e.preventDefault();const {cardId,m}=cardCtx,amount=C.round2(el('stAmount').value),status=el('stStatus').value,asOf=el('stAsOf').value;
- if(el('stAmount').value===''||amount<0)return showErr('stErr','Enter the total.');if(status==='partial'&&!C.isDate(asOf))return showErr('stErr','Choose the date this amount was known.');
- const st=C.statementFor(data,cardId,m),id=st?.id||C.safeId('st-'+cardId+'-'+m),d={card:cardId,month:m,amount,status};if(status==='partial')d.asOf=asOf;
- if(write([{op:'set',coll:'statements',id,data:d}],'Statement saved.')){closeDlg('dlgStatement');render();openCard(cardId,m)}});
-el('stDelete').onclick=async()=>{const {cardId,m}=cardCtx,st=C.statementFor(data,cardId,m);if(!st||!await ask('Remove this statement total? The amount goes back to the estimate from recorded purchases.',{yes:'Remove'}))return;write([{op:'delete',coll:'statements',id:st.id}],'Statement removed.');closeDlg('dlgStatement');render()};
+ el('stHead').textContent=col.card.name+' — '+dayLabel(col.date);el('stInfo').textContent='Type the total from the card company app or statement. It replaces the app\'s own figure of '+money(col.amount)+'.';
+ el('stAmount').value=st?.status==='final'?st.amount:'';el('stDelete').classList.toggle('hidden',!st||st.status!=='final');showErr('stErr','');closeDlg('dlgCard');openDlg('dlgStatement')}
+el('formStatement').addEventListener('submit',e=>{e.preventDefault();const {cardId,m}=cardCtx,amount=C.round2(el('stAmount').value);
+ if(el('stAmount').value===''||amount<0)return showErr('stErr','Type the total.');
+ const st=C.statementFor(data,cardId,m),id=st?.id||C.safeId('st-'+cardId+'-'+m);
+ if(write([{op:'set',coll:'statements',id,data:{card:cardId,month:m,amount,status:'final'}}],'Saved.')){closeDlg('dlgStatement');render();openCard(cardId,m)}});
+el('stDelete').onclick=async()=>{const {cardId,m}=cardCtx,st=C.statementFor(data,cardId,m);if(!st||!await ask('Remove the statement total? The app goes back to adding up the purchases.',{title:'Remove?',yes:'Remove'}))return;write([{op:'delete',coll:'statements',id:st.id}],'Removed.');closeDlg('dlgStatement');render()};
 
 // ---------------------------------------------------------------- import card files
 let imp=null;
@@ -420,7 +467,7 @@ function loadAnyBackup(obj,raw){
 async function restoreFrom(raw){let obj;try{obj=JSON.parse(raw)}catch{throw Error('the file is not valid JSON')}
  const {next,notes,legacy,what}=loadAnyBackup(obj,raw),n=Object.keys(next.transactions).length,b=Object.keys(next.bills).length;
  if(!await ask((data?'This replaces ALL budget data':'This sets up the budget')+(store.kind==='cloud'?' for both phones':'')+' from this '+what+':\n\n'+n+' transactions, '+b+' bills, '+Object.keys(next.statements).length+' card statements.'+(data?'\n\nTip: download a backup of the current data first.':''),{title:data?'Replace all data?':'Import this file?',yes:data?'Replace everything':'Import'}))return;
- if(replaceAll(next,legacy,'Restored: '+n+' transactions and '+b+' bills.')){if(notes.length)banner(notes.join(' '),'warn');monthChosen=false;tab='budget';render()}}   // the month is chosen once the new data has arrived (cloud data arrives a moment later)
+ if(replaceAll(next,legacy,'Restored: '+n+' transactions and '+b+' bills.')){if(notes.length)banner(notes.join(' '),'warn');monthChosen=false;tab='home';render()}}   // the month is chosen once the new data has arrived (cloud data arrives a moment later)
 el('fileBackup').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{await restoreFrom(await f.text())}catch(err){banner('Could not restore: '+err.message+'. Nothing was changed.')}};
 
 // ---------------------------------------------------------------- Firebase connection
@@ -448,7 +495,9 @@ document.addEventListener('click',async e=>{
   case 'dismiss':el('banner').className='app-banner hidden';break;
   case 'add-expense':openExpense('expense');break;
   case 'add-refund':openExpense('refund');break;
-  case 'view-cat':txFilter=b.dataset.id;tab='transactions';render();break;
+  case 'view-cat':txFilter=b.dataset.id;tab='spending';render();break;
+  case 'toggle-buckets':showAllBuckets=!showAllBuckets;render();break;
+  case 'downloaded':lsSet('familyBudgetDownloaded',month);render();break;
   case 'edit-tx':{const id=b.dataset.id,t=data.transactions[id]?{...data.transactions[id],id}:C.itemsForMonth(data,month).find(x=>x.id===id)||[-2,-1,1].flatMap(n=>C.itemsForMonth(data,C.addMonths(month,n))).find(x=>x.id===id);if(t)openExpense(t.type,t);else{banner('That item could not be found (it may have changed on the other phone).','warn');render()}break}
   case 'actual':openActual(b.dataset.bill,b.dataset.month);break;
   case 'add-bill':openBill();break;
