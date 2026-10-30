@@ -86,7 +86,8 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
  <label for="billKind">Is the amount the same every time?</label><select id="billKind"><option value="fixed">Yes — the same every time</option><option value="variable">No — it changes (like electricity)</option></select>
  <div class="grid2"><div><label for="billAmount" id="billAmountLabel">Amount (₪)</label><input id="billAmount" type="number" inputmode="decimal" step="any" min="0"></div><div><label for="billDay">Day of the month</label><input id="billDay" type="number" min="1" max="31" step="1"></div></div>
  <div class="grid2"><div><label for="billEvery">How often</label><select id="billEvery"><option value="1">Every month</option><option value="2">Every 2 months</option><option value="3">Every 3 months</option><option value="6">Every 6 months</option><option value="12">Every year</option><option value="0">Just once</option></select></div><div><label for="billMethod">Paid with</label><select id="billMethod"></select></div></div>
- <label id="billSpreadWrap" class="hidden" style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" id="billSpread"> Set aside part of it every month (recommended)</label>
+ <div id="billSpreadWrap" class="hidden"><label style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" id="billSpread"> Set aside part of it every month (recommended)</label>
+  <label for="billCovers">The bill is for</label><select id="billCovers"><option value="behind">The months before it — paid afterwards (like electricity)</option><option value="ahead">The months starting then — paid in advance (like arnona)</option></select></div>
  <div class="grid2"><div><label for="billStart" id="billStartLabel">Starts</label><input id="billStart" type="month"></div><div><label for="billEnd">Ends (leave empty if it doesn't)</label><input id="billEnd" type="month"></div></div>
  <label for="billCategory">Bucket</label><select id="billCategory"></select>
  <div id="billFromWrap" class="hidden"><label for="billFrom">Use the new amount or date from</label><input id="billFrom" type="month"><div class="subtle">Months before that keep the old amount.</div></div>
@@ -352,7 +353,7 @@ el('formActual').addEventListener('submit',e=>{e.preventDefault();if(!actCtx)ret
 // ---------------------------------------------------------------- bills
 let editBill=null;
 function openBill(b=null){editBill=b;const m=clampMonth(month),v=b?C.billValues(b,m):null;
- el('billHead').textContent=b?b.name:'Add a bill';el('billName').value=b?.name||'';el('billKind').value=b?.kind||'fixed';el('billAmount').value=v?.amount??'';el('billEvery').value=String(b?.every??1);el('billSpread').checked=b?C.isSpread(b):true;el('billDay').value=v?.day||1;el('billStart').value=b?.start||m;el('billEnd').value=b?.end||'';
+ el('billHead').textContent=b?b.name:'Add a bill';el('billName').value=b?.name||'';el('billKind').value=b?.kind||'fixed';el('billAmount').value=v?.amount??'';el('billEvery').value=String(b?.every??1);el('billSpread').checked=b?C.isSpread(b):true;el('billCovers').value=b?.covers==='ahead'?'ahead':'behind';el('billDay').value=v?.day||1;el('billStart').value=b?.start||m;el('billEnd').value=b?.end||'';
  el('billCategory').innerHTML=catOptions(v?.category||'bills',v?.category);el('billMethod').innerHTML=methodOptions(v?.method||'bank-hapoalim');
  el('billFromWrap').classList.toggle('hidden',!b);el('billFrom').value=b?(m>b.start?m:b.start):'';el('billDelete').classList.toggle('hidden',!b);showErr('billErr','');billKindLabel();openDlg('dlgBill')}
 const billKindLabel=()=>{const every=Number(el('billEvery').value);el('billAmountLabel').textContent=(el('billKind').value==='variable'?'Usual amount':'Amount')+(every>1?' per bill (₪)':' (₪)');el('billSpreadWrap').classList.toggle('hidden',!(every>1));el('billStartLabel').textContent=every>1?'A month it is paid':'Starts'};
@@ -362,9 +363,9 @@ el('formBill').addEventListener('submit',e=>{e.preventDefault();
  if(!name)return showErr('billErr','Give the bill a name.');if(!(amount>0))return showErr('billErr','Enter an amount above zero.');if(!(day>=1&&day<=31))return showErr('billErr','The day must be between 1 and 31.');if(!C.isMonth(start))return showErr('billErr','Choose when it starts.');if(end&&end<start)return showErr('billErr','It ends before it starts.');
  const vals={amount,day,method:el('billMethod').value,category:el('billCategory').value};
  let b;
- const spread=every>1&&el('billSpread').checked;
- if(!editBill)b={id:C.safeId('b-'+C.newId()),name,kind:el('billKind').value,every,spread,start,end:every===0?'':end,pauses:[],skipped:[],changes:[],...vals};
- else{b={...editBill,name,kind:el('billKind').value,every,spread,start,end:every===0?'':end};const cur=C.billValues(editBill,C.isMonth(from)?from:start),changed=Object.keys(vals).filter(k=>String(vals[k])!==String(cur[k]));
+ const spread=every>1&&el('billSpread').checked,covers=spread&&el('billCovers').value==='ahead'?'ahead':'behind';
+ if(!editBill)b={id:C.safeId('b-'+C.newId()),name,kind:el('billKind').value,every,spread,covers,start,end:every===0?'':end,pauses:[],skipped:[],changes:[],...vals};
+ else{b={...editBill,name,kind:el('billKind').value,every,spread,covers,start,end:every===0?'':end};const cur=C.billValues(editBill,C.isMonth(from)?from:start),changed=Object.keys(vals).filter(k=>String(vals[k])!==String(cur[k]));
   if(changed.length){if(!C.isMonth(from)||from<=start){Object.assign(b,vals);b.changes=(b.changes||[]).filter(c=>c.from>start)}else{const ch={from};changed.forEach(k=>ch[k]=vals[k]);b.changes=[...(b.changes||[]).filter(c=>c.from!==from),ch]}}}
  if(write([{op:'set',coll:'bills',id:b.id,data:b}],name+' saved.')){closeDlg('dlgBill');render()}});
 el('billDelete').onclick=async()=>{if(!editBill||!await ask('Delete '+editBill.name+' completely? It disappears from every month, including past ones. Amounts you already typed for it stay as normal purchases.\n\nIf it just stopped, use “Stop” instead — past months then stay as they were.',{title:'Delete this bill?',yes:'Delete bill'}))return;write([{op:'delete',coll:'bills',id:editBill.id}],editBill.name+' deleted.');closeDlg('dlgBill');render()};

@@ -76,9 +76,11 @@ C.billActual=(db,billId,m)=>txList(db).find(t=>t.billId===billId&&t.billMonth===
 // every month, and the real bill — typed once — is split over the months it covers.
 // The bank still pays the whole bill on its own date.
 C.isSpread=b=>!!b&&b.spread===true&&Number(b.every)>1;
-// The payment month whose bill covers month m (the first payment on or after m).
-C.cycleMonth=(b,m)=>{const e=Number(b.every),d=C.monthsBetween(b.start,m);return C.addMonths(b.start,Math.ceil(d/e)*e)};
-C.coveredMonths=(b,P)=>{const e=Number(b.every),out=[];for(let i=e-1;i>=0;i--)out.push(C.addMonths(P,-i));return out};
+// The payment month whose bill covers month m. Most bills (electricity) are paid
+// afterwards: the bill in month P covers the months up to P. Some (arnona) are paid
+// in advance (covers:'ahead'): the bill in month P covers P and the months after it.
+C.cycleMonth=(b,m)=>{const e=Number(b.every),d=C.monthsBetween(b.start,m);return C.addMonths(b.start,(b.covers==='ahead'?Math.floor(d/e):Math.ceil(d/e))*e)};
+C.coveredMonths=(b,P)=>{const e=Number(b.every),out=[];for(let i=0;i<e;i++)out.push(b.covers==='ahead'?C.addMonths(P,i):C.addMonths(P,i-e+1));return out};
 const paused=(b,m)=>(b.pauses||[]).some(p=>p.from<=m&&(!p.to||m<=p.to));
 const spreadIds=db=>new Set(Object.entries(db.bills||{}).filter(([,b])=>C.isSpread(b)).map(([id])=>id));
 // What the BUDGET sees in month m: bills not yet entered (fixed = spent automatically,
