@@ -275,7 +275,7 @@ function renderBanks(){
 }
 
 // ---- Bills ---------------------------------------------------------------------
-function scheduleText(b){const e=Number(b.every);const v=C.billValues(b,clampMonth(month));return (e===0?'Once, '+monthLabel(b.start):e===1?'Every month':e===12?'Every year':'Every '+e+' months')+' on the '+v.day+(v.day===1?'st':v.day===2?'nd':v.day===3?'rd':'th')+' · '+methodName(v.method)+(C.isSpread(b)?' · 1/'+e+' set aside each month':'')+(b.end&&e!==0?' · until '+monthLabel(b.end):'')}
+function scheduleText(b){const e=Number(b.every);const v=C.billValues(b,clampMonth(month));return (e===0?'Once, '+monthLabel(b.start):e===1?'Every month':e===12?'Every year':'Every '+e+' months')+' on the '+ordinal(v.day)+' · '+methodName(v.method)+(C.isSpread(b)?' · 1/'+e+' set aside each month':'')+(b.end&&e!==0?' · until '+monthLabel(b.end):'')}
 function renderBills(){
  const all=Object.values(data.bills).sort((a,b)=>a.name.localeCompare(b.name)),m=month;
  const group=(title,hint,list)=>list.length?`<h3>${title}</h3><div class="subtle" style="margin-bottom:4px">${hint}</div>`+list.map(b=>{const v=C.billValues(b,m),occurs=C.billOccursIn(b,m),actual=C.billActual(data,b.id,m),paused=(b.pauses||[]).some(p=>p.from<=m&&(!p.to||m<=p.to));let st='';
@@ -435,7 +435,7 @@ function saveImport(){const ops=[],learn={},now=new Date().toISOString();let n=0
 el('fileImport').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)startImport(f,el('fileImport').dataset.card||null)};
 
 // ---------------------------------------------------------------- settings
-const ordinal=d=>d+(d===1||d===21?'st':d===2||d===22?'nd':d===3||d===23?'rd':'th');
+const ordinal=d=>d+(d%10===1&&d!==11?'st':d%10===2&&d!==12?'nd':d%10===3&&d!==13?'rd':'th');
 const latestDay=c=>{const ch=[...(c.changes||[])].sort((a,b)=>a.from.localeCompare(b.from));return Number(ch.length?ch[ch.length-1].day:c.day)||1};
 const nextMonthFor=c=>{const ch=[...(c.changes||[])].sort((a,b)=>a.from.localeCompare(b.from));return ch.length?ch[ch.length-1].from:C.addMonths(clampMonth(thisMonth()),1)};
 // "Collected on the 10th until November 2026, then on the 2nd" — in plain words
