@@ -87,6 +87,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
  <div class="err hidden" id="stErr" role="alert"></div>
  <div class="actions"><button class="primary" type="submit">Save</button><button class="secondary" type="button" data-close>Cancel</button><button class="secondary danger hidden" type="button" id="stDelete">Remove statement</button></div></form></dialog>
 
+<dialog id="dlgAsk"><div class="mhead" id="askHead">Are you sure?</div><p id="askText" style="white-space:pre-line"></p><div class="actions"><button class="primary" type="button" id="askYes">Yes</button><button class="secondary" type="button" id="askNo">Cancel</button></div></dialog>
 <dialog id="dlgImport" class="wide"><div class="mhead">Import card transactions</div><div id="impBody"></div></dialog>
 <input type="file" id="fileImport" accept=".csv,.xlsx,.xls,text/csv" class="hidden">
 <input type="file" id="fileBackup" accept=".json,application/json" class="hidden">
@@ -120,6 +121,12 @@ window.addEventListener('error',e=>banner('Something went wrong: '+(e.message||'
 window.addEventListener('unhandledrejection',e=>banner('Something went wrong: '+(e.reason?.message||e.reason||'unknown error')));
 const errText=e=>e?.code==='permission-denied'?'this Google account is not allowed to use the budget (check the email addresses in the Firebase rules)':(e?.message||String(e));
 const openDlg=id=>{const d=el(id);if(d.open)d.close();d.showModal()},closeDlg=id=>{const d=el(id);if(d.open)d.close()};
+// The app's own yes/no window. Browser pop-ups (confirm) are silently blocked in some
+// places — in-app browsers, previews — which made buttons appear to do nothing.
+let askResolve=null;
+function ask(text,{title='Are you sure?',yes='Yes'}={}){if(askResolve)askResolve(false);el('askHead').textContent=title;el('askText').textContent=text;el('askYes').textContent=yes;openDlg('dlgAsk');return new Promise(res=>{askResolve=res})}
+const answer=v=>{const r=askResolve;askResolve=null;closeDlg('dlgAsk');if(r)r(v)};
+el('askYes').onclick=()=>answer(true);el('askNo').onclick=()=>answer(false);el('dlgAsk').addEventListener('cancel',()=>answer(false));
 const showErr=(id,msg)=>{const n=el(id);n.textContent=msg;n.classList.toggle('hidden',!msg)};
 
 // ---------------------------------------------------------------- storage
@@ -277,9 +284,9 @@ el('formExpense').addEventListener('submit',e=>{e.preventDefault();
  if(base.merchant&&base.category!==cat)ops.push({op:'set',coll:'merchants',id:C.safeId(C.normMerchant(base.merchant)),data:{category:cat}});
  if(write(ops,(editTx?'Updated: ':'Saved: ')+money(amount)+' · '+catName(cat)+' · '+monthLabel(C.monthOf(date))+'.')){closeDlg('dlgExpense');month=C.monthOf(date);render()}
 });
-el('expDelete').onclick=()=>{if(!editTx)return;
- if(editTx.virtual){const b=data.bills[editTx.billId];if(!b||!confirm('Skip '+b.name+' for '+monthLabel(editTx.billMonth)+'? Other months are not affected.'))return;write([{op:'set',coll:'bills',id:b.id,data:{...b,skipped:[...new Set([...(b.skipped||[]),editTx.billMonth])]}}],b.name+' skipped for '+monthLabel(editTx.billMonth)+'.')}
- else{if(!confirm('Delete '+(editTx.note||'this transaction')+' ('+money(editTx.amount)+')?'+(editTx.billId?' The bill goes back to its automatic amount or estimate for that month.':'')))return;write([{op:'delete',coll:'transactions',id:editTx.id}],'Transaction deleted.')}
+el('expDelete').onclick=async()=>{if(!editTx)return;
+ if(editTx.virtual){const b=data.bills[editTx.billId];if(!b||!await ask('Skip '+b.name+' for '+monthLabel(editTx.billMonth)+'? Other months are not affected.',{yes:'Skip this month'}))return;write([{op:'set',coll:'bills',id:b.id,data:{...b,skipped:[...new Set([...(b.skipped||[]),editTx.billMonth])]}}],b.name+' skipped for '+monthLabel(editTx.billMonth)+'.')}
+ else{if(!await ask('Delete '+(editTx.note||'this transaction')+' ('+money(editTx.amount)+')?'+(editTx.billId?' The bill goes back to its automatic amount or estimate for that month.':''),{yes:'Delete'}))return;write([{op:'delete',coll:'transactions',id:editTx.id}],'Transaction deleted.')}
  closeDlg('dlgExpense');render()};
 
 // ---------------------------------------------------------------- actual bill amounts
@@ -307,7 +314,7 @@ el('formBill').addEventListener('submit',e=>{e.preventDefault();
  else{b={...editBill,name,kind:el('billKind').value,every,start,end:every===0?'':end};const cur=C.billValues(editBill,C.isMonth(from)?from:start),changed=Object.keys(vals).filter(k=>String(vals[k])!==String(cur[k]));
   if(changed.length){if(!C.isMonth(from)||from<=start){Object.assign(b,vals);b.changes=(b.changes||[]).filter(c=>c.from>start)}else{const ch={from};changed.forEach(k=>ch[k]=vals[k]);b.changes=[...(b.changes||[]).filter(c=>c.from!==from),ch]}}}
  if(write([{op:'set',coll:'bills',id:b.id,data:b}],'Bill "'+name+'" saved.')){closeDlg('dlgBill');render()}});
-el('billDelete').onclick=()=>{if(!editBill||!confirm('Delete '+editBill.name+' completely? It disappears from every month, including past ones. Amounts you already entered for it are kept as normal transactions.\n\nTo stop a bill from now on, use Pause or set a last month instead.'))return;write([{op:'delete',coll:'bills',id:editBill.id}],editBill.name+' deleted.');closeDlg('dlgBill');render()};
+el('billDelete').onclick=async()=>{if(!editBill||!await ask('Delete '+editBill.name+' completely? It disappears from every month, including past ones. Amounts you already entered for it are kept as normal transactions.\n\nTo stop a bill from now on, use Pause or set a last month instead.',{yes:'Delete bill'}))return;write([{op:'delete',coll:'bills',id:editBill.id}],editBill.name+' deleted.');closeDlg('dlgBill');render()};
 function togglePause(b){const m=clampMonth(thisMonth()),pauses=[...(b.pauses||[])],open=pauses.find(p=>p.from<=clampMonth(month)&&(!p.to||clampMonth(month)<=p.to));
  if(open){open.to=C.addMonths(m,-1);const kept=pauses.filter(p=>!(p.to&&p.to<p.from));write([{op:'set',coll:'bills',id:b.id,data:{...b,pauses:kept}}],b.name+' resumed from '+monthLabel(m)+'.')}
  else{pauses.push({from:m});write([{op:'set',coll:'bills',id:b.id,data:{...b,pauses}}],b.name+' paused from '+monthLabel(m)+'. Earlier months are unchanged.')}render()}
@@ -330,7 +337,7 @@ el('formStatement').addEventListener('submit',e=>{e.preventDefault();const {card
  if(el('stAmount').value===''||amount<0)return showErr('stErr','Enter the total.');if(status==='partial'&&!C.isDate(asOf))return showErr('stErr','Choose the date this amount was known.');
  const st=C.statementFor(data,cardId,m),id=st?.id||C.safeId('st-'+cardId+'-'+m),d={card:cardId,month:m,amount,status};if(status==='partial')d.asOf=asOf;
  if(write([{op:'set',coll:'statements',id,data:d}],'Statement saved.')){closeDlg('dlgStatement');render();openCard(cardId,m)}});
-el('stDelete').onclick=()=>{const {cardId,m}=cardCtx,st=C.statementFor(data,cardId,m);if(!st||!confirm('Remove this statement total? The amount goes back to the estimate from recorded purchases.'))return;write([{op:'delete',coll:'statements',id:st.id}],'Statement removed.');closeDlg('dlgStatement');render()};
+el('stDelete').onclick=async()=>{const {cardId,m}=cardCtx,st=C.statementFor(data,cardId,m);if(!st||!await ask('Remove this statement total? The amount goes back to the estimate from recorded purchases.',{yes:'Remove'}))return;write([{op:'delete',coll:'statements',id:st.id}],'Statement removed.');closeDlg('dlgStatement');render()};
 
 // ---------------------------------------------------------------- import card files
 let imp=null;
@@ -410,11 +417,11 @@ function loadAnyBackup(obj,raw){
  if(C.isBackup(obj))return {next:C.fromBackup(obj),notes:[],legacy:null,what:'backup from '+String(obj.exportedAt||'').slice(0,10)};
  if(C.isLegacyBackup(obj)){const r=C.migrateLegacy(obj,data);return {next:r.db,notes:r.notes,legacy:raw,what:'old-app backup (v27/v28)'}}
  throw Error('this is not a Family Budget backup')}
-function restoreFrom(raw){let obj;try{obj=JSON.parse(raw)}catch{throw Error('the file is not valid JSON')}
+async function restoreFrom(raw){let obj;try{obj=JSON.parse(raw)}catch{throw Error('the file is not valid JSON')}
  const {next,notes,legacy,what}=loadAnyBackup(obj,raw),n=Object.keys(next.transactions).length,b=Object.keys(next.bills).length;
- if(!confirm('Replace ALL budget data'+(store.kind==='cloud'?' for both phones':'')+' with this '+what+'?\n\n'+n+' transactions, '+b+' bills, '+Object.keys(next.statements).length+' card statements.'+(data?'\n\nTip: download a backup of the current data first.':'')))return;
+ if(!await ask((data?'This replaces ALL budget data':'This sets up the budget')+(store.kind==='cloud'?' for both phones':'')+' from this '+what+':\n\n'+n+' transactions, '+b+' bills, '+Object.keys(next.statements).length+' card statements.'+(data?'\n\nTip: download a backup of the current data first.':''),{title:data?'Replace all data?':'Import this file?',yes:data?'Replace everything':'Import'}))return;
  if(replaceAll(next,legacy,'Restored: '+n+' transactions and '+b+' bills.')){if(notes.length)banner(notes.join(' '),'warn');month=clampMonth(thisMonth());tab='budget';render()}}
-el('fileBackup').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{restoreFrom(await f.text())}catch(err){banner('Could not restore: '+err.message+'. Nothing was changed.')}};
+el('fileBackup').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{await restoreFrom(await f.text())}catch(err){banner('Could not restore: '+err.message+'. Nothing was changed.')}};
 
 // ---------------------------------------------------------------- Firebase connection
 const currentConfig=()=>{if(window.FAMILY_BUDGET_FIREBASE_CONFIG)return window.FAMILY_BUDGET_FIREBASE_CONFIG;try{return JSON.parse(lsGet(CFG_KEY)||'null')}catch{return null}};
@@ -454,12 +461,12 @@ document.addEventListener('click',async e=>{
   case 'backup':download('family-budget-backup-'+today()+'.json',JSON.stringify(C.makeBackup(data),null,1),'application/json');flash('Backup downloaded. It contains financial information — keep it private.');break;
   case 'csv':exportCsv();break;
   case 'restore':el('fileBackup').click();break;
-  case 'fresh':if(confirm('Start with example categories, cards and bills? You can change all of them in Settings and Bills.'))replaceAll(C.emptyDb(),null,'Budget created.');break;
-  case 'import-old':restoreFrom(lsGet(OLD_KEY));break;
-  case 'copy-local':{const l=normalise(new LocalStore().read());if(l&&confirm('Copy this device’s budget into the shared cloud budget?'))replaceAll(l,null,'Copied to the cloud.');break}
+  case 'fresh':if(await ask('Start with example categories, cards and bills? You can change all of them in Settings and Bills.',{yes:'Start'}))replaceAll(C.emptyDb(),null,'Budget created.');break;
+  case 'import-old':await restoreFrom(lsGet(OLD_KEY));break;
+  case 'copy-local':{const l=normalise(new LocalStore().read());if(l&&await ask('Copy this device’s budget into the shared cloud budget?',{yes:'Copy'}))replaceAll(l,null,'Copied to the cloud.');break}
   case 'signin':await store.signIn();break;
-  case 'signout':if(confirm('Sign out on this device?'))await store.signOut();break;
-  case 'use-local':case 'disconnect':if(confirm('Use the budget saved on this device only? The cloud data is not deleted.')){try{localStorage.removeItem(CFG_KEY)}catch{}if(window.FAMILY_BUDGET_FIREBASE_CONFIG){window.FAMILY_BUDGET_FIREBASE_CONFIG=null}location.reload()}break;
+  case 'signout':if(await ask('Sign out on this device?',{yes:'Sign out'}))await store.signOut();break;
+  case 'use-local':case 'disconnect':if(await ask('Use the budget saved on this device only? The cloud data is not deleted.',{yes:'Use this device only'})){try{localStorage.removeItem(CFG_KEY)}catch{}if(window.FAMILY_BUDGET_FIREBASE_CONFIG){window.FAMILY_BUDGET_FIREBASE_CONFIG=null}location.reload()}break;
   case 'connect':{let c;try{c=C.parseFirebaseConfig(el('cfgText').value)}catch(err){banner('Could not connect: '+err.message+'.','warn');break}if(!lsSet(CFG_KEY,JSON.stringify(c))){banner('This browser will not store the setting. Open the app in a normal browser tab.');break}location.reload();break}
   case 'share-setup':{const link=location.origin+location.pathname+'#setup='+encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(currentConfig())))));try{await navigator.clipboard.writeText(link);flash('Setup link copied. Send it to the other phone and open it there.')}catch{prompt('Copy this link and open it on the other phone:',link)}break}
  }}catch(err){banner((a==='signin'?'Sign-in failed: ':'')+errText(err))}
