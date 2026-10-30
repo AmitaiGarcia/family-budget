@@ -25,7 +25,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 .bank-line{width:100%;background:transparent;border:0;padding:7px 0;text-align:left;color:inherit;display:flex;justify-content:space-between;align-items:baseline;gap:16px;font-size:14px;border-radius:6px}.bank-line:hover{background:#f1f5fa}.bank-line>span:first-child{min-width:0;overflow-wrap:anywhere}.bank-amount{white-space:nowrap;font-weight:500;font-variant-numeric:tabular-nums}
 .imp{width:100%;border-collapse:collapse;font-size:13px}.imp td,.imp th{padding:6px 4px;border-bottom:1px solid #edf0f5;text-align:left;vertical-align:middle}.imp select{min-height:34px;padding:5px;font-size:12px}.imp tr.flag{background:#fffaf0}.imp tr.off{opacity:.55}
 .monthrow{display:flex;align-items:center;justify-content:center;gap:8px;margin:4px 0 14px}.monthrow input{width:190px;text-align:center;font-weight:600;font-size:17px;border:0;background:transparent}.monthrow button{min-width:44px}
-.hero{text-align:center}.heronum{font-size:38px;font-weight:700;margin:4px 0;font-variant-numeric:tabular-nums}
+.savingsnum{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}.savingsnum.over{color:#b12830}.hero{text-align:center}.heronum{font-size:38px;font-weight:700;margin:4px 0;font-variant-numeric:tabular-nums}
 .bucket{display:block;width:100%;text-align:left;background:transparent;border:0;border-bottom:1px solid #edf0f5;padding:10px 2px;color:inherit;border-radius:0}.bucket:last-child{border-bottom:0}.bucket .row{align-items:baseline}.bucket .left{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}.bucket .of{font-weight:400;font-size:12px;color:#67758a}.over{color:#b12830}
 .waiting{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #edf0f5;font-size:14px}
 .shell{padding-bottom:150px}.bottombar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #e3e8ef;padding:10px 14px calc(8px + env(safe-area-inset-bottom));z-index:50}.bottombar>*{max-width:912px;margin-left:auto;margin-right:auto}.addbtn{display:block;width:100%;font-size:17px;padding:13px;font-weight:600}
@@ -47,6 +47,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
  <section id="tab-home" class="tab">
   <div id="downloadDay"></div>
   <div class="card hero"><div class="subtle">You can still spend</div><div id="heroAmount" class="heronum">—</div><div class="subtle" id="heroNote"></div></div>
+  <div class="card" id="savingsCard"></div>
   <div class="card"><h2>Left in each bucket</h2><div id="bucketList"></div></div>
   <div class="card"><h2>Leaving the bank this month</h2><div id="homeBanks"></div></div>
   <p class="subtle" id="reserveNote" style="text-align:center"></p>
@@ -101,6 +102,11 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
  <div class="err hidden" id="stErr" role="alert"></div>
  <div class="actions"><button class="primary" type="submit">Save</button><button class="secondary" type="button" data-close>Cancel</button><button class="secondary danger hidden" type="button" id="stDelete">Remove — add up purchases instead</button></div></form></dialog>
 
+<dialog id="dlgMove"><form id="formMove" novalidate><div class="mhead">Move money from Savings</div><p class="subtle" id="mvInfo"></p>
+ <label for="mvTo">To which bucket</label><select id="mvTo"></select>
+ <label for="mvAmount">How much (₪)</label><input id="mvAmount" type="number" inputmode="decimal" step="any" min="0">
+ <div class="err hidden" id="mvErr" role="alert"></div>
+ <div class="actions"><button class="primary" type="submit">Move</button><button class="secondary" type="button" data-close>Cancel</button></div></form></dialog>
 <dialog id="dlgAsk"><div class="mhead" id="askHead">Are you sure?</div><p id="askText" style="white-space:pre-line"></p><div class="actions"><button class="primary" type="button" id="askYes">Yes</button><button class="secondary" type="button" id="askNo">Cancel</button></div></dialog>
 <dialog id="dlgImport" class="wide"><div class="mhead">Import card transactions</div><div id="impBody"></div></dialog>
 <input type="file" id="fileImport" accept=".csv,.xlsx,.xls,text/csv" class="hidden">
@@ -147,7 +153,7 @@ const showErr=(id,msg)=>{const n=el(id);n.textContent=msg;n.classList.toggle('hi
 // Both stores take the same list of operations, so the rest of the app does not
 // care where data lives. Each record is its own document, so two phones editing
 // different things never overwrite each other.
-const emptyData=()=>({settings:null,bills:{},transactions:{},statements:{},merchants:{}});
+const emptyData=()=>({settings:null,bills:{},transactions:{},statements:{},merchants:{},moves:{}});
 function applyOp(d,op){if(op.op==='settings')d.settings=op.data;else if(op.op==='set')d[op.coll][op.id]=op.data;else if(op.op==='delete')delete d[op.coll][op.id];else if(op.op==='legacy')d.legacy=op.json}
 class LocalStore{
  constructor(){this.kind='local';this.fns=[];window.addEventListener('storage',e=>{if(e.key===LOCAL_KEY)this.emit()})}
@@ -156,7 +162,7 @@ class LocalStore{
  emit(){const d=this.read();this.fns.forEach(f=>f(d,{ready:true,pending:false,offline:false}))}
  apply(ops){const d=this.read();ops.forEach(op=>applyOp(d,op));const json=JSON.stringify(d);localStorage.setItem(LOCAL_KEY,json);if(localStorage.getItem(LOCAL_KEY)!==json)throw Error('the browser did not keep the data');this.emit()}
 }
-const FBV='10.12.2',FB=n=>`https://www.gstatic.com/firebasejs/${FBV}/firebase-${n}.js`,BASE=['households','family'],COLLS=['bills','transactions','statements','merchants'];
+const FBV='10.12.2',FB=n=>`https://www.gstatic.com/firebasejs/${FBV}/firebase-${n}.js`,BASE=['households','family'],COLLS=['bills','transactions','statements','merchants','moves'];
 const clean=x=>JSON.parse(JSON.stringify(x));
 class CloudStore{
  constructor(config){this.kind='cloud';this.config=config;this.data=emptyData();this.unsubs=[];this.loaded={};this.pending={};this.fromCache=true}
@@ -187,7 +193,7 @@ function normalise(d){
  if(!d||!d.settings)return null;
  const s={...C.defaultSettings(),...d.settings};s.categories=(s.categories||[]).map(c=>({opening:0,...c}));s.accounts={...C.defaultSettings().accounts,...(s.accounts||{})};
  const bills={};for(const [id,b] of Object.entries(d.bills||{}))bills[id]={pauses:[],skipped:[],changes:[],every:1,kind:'fixed',...b,id};
- return {settings:s,bills,transactions:d.transactions||{},statements:d.statements||{},merchants:d.merchants||{}};
+ return {settings:s,bills,transactions:d.transactions||{},statements:d.statements||{},merchants:d.merchants||{},moves:d.moves||{}};
 }
 // One way to save. Local: stored and read back before we say "saved".
 // Cloud: shown at once from the phone's own copy, then confirmed by Google.
@@ -233,16 +239,27 @@ let showAllBuckets=false;
 // Bills that haven't arrived yet this month (we count their usual amount meanwhile).
 const notInYet=m=>C.occurrences(data,m).filter(o=>o.estimate);
 function bucketRow(c){
- const lim=Number(c.limit)||0,used=c.spent+c.reserved,carry=C.round2(c.available-(lim-used)),room=Math.max(lim+Math.max(carry,0),1),pct=Math.max(0,Math.min(100,used/room*100)),over=c.available<0;
- const note=carry>0.5?'includes '+money(carry)+' saved from earlier months':carry<-0.5?money(-carry)+' less because of overspending earlier':'';
- return `<button type="button" class="bucket" data-act="view-cat" data-id="${esc(c.id)}"><div class="row"><span>${esc(c.name)}</span><span class="left ${over?'over':''}">${over?money(-c.available)+' over':money(c.available)+' left'} <span class="of">of ${money(lim)}</span></span></div>${note?`<div class="subtle" style="margin-top:2px">${note}</div>`:''}<div class="bar"><div class="fill ${over?'over':pct>85?'warning':''}" style="width:${pct}%"></div></div></button>`}
+ const lim=Number(c.limit)||0,used=c.spent+c.reserved,room=Math.max(lim+c.moved+Math.max(c.carry,0),1),pct=Math.max(0,Math.min(100,used/room*100)),over=c.available<0;
+ const notes=[c.carry>0.5?'includes '+money(c.carry)+' saved from earlier months':c.carry<-0.5?money(-c.carry)+' less because of overspending earlier':'',c.moved>0.5?'includes '+money(c.moved)+' from Savings':c.moved<-0.5?money(-c.moved)+' moved out':''].filter(Boolean).join(' · ');
+ return `<button type="button" class="bucket" data-act="view-cat" data-id="${esc(c.id)}"><div class="row"><span>${esc(c.name)}</span><span class="left ${over?'over':''}">${over?money(-c.available)+' over':money(c.available)+' left'} <span class="of">of ${money(lim)}</span></span></div>${notes?`<div class="subtle" style="margin-top:2px">${notes}</div>`:''}<div class="bar"><div class="fill ${over?'over':pct>85?'warning':''}" style="width:${pct}%"></div></div></button>`}
+// Savings: what every bucket left over (or overspent) last month lands here.
+function renderSavings(b){
+ const sv=b.cats.find(c=>c.id===C.SAVINGS),box=el('savingsCard');if(!sv){box.classList.add('hidden');return}box.classList.remove('hidden');
+ const prev=monthLabel(C.addMonths(month,-1)),first=month<=data.settings.startMonth,moves=C.movesInMonth(data,month);
+ const swept=b.swept>0.5?money(b.swept)+' left over in the buckets in '+prev+' was added.':b.swept<-0.5?'The buckets went '+money(-b.swept)+' over in '+prev+'; that came out of Savings.':'';
+ box.innerHTML=`<div class="row"><h2 style="margin:0">${esc(sv.name)}</h2><span class="savingsnum ${sv.available<0?'over':''}">${sv.available<0?money(-sv.available)+' short':money(sv.available)}</span></div>
+  <div class="subtle" style="margin:6px 0">${first?'From next month, whatever is left in a bucket at the end of the month comes here (buckets marked “rolls over” keep theirs).':'Whatever is left in a bucket at the end of a month comes here (buckets marked “rolls over” keep theirs).'}${Number(sv.limit)?' Plus '+money(sv.limit)+' every month.':''}</div>
+  ${swept?`<div style="margin:6px 0">${esc(swept)}</div>`:''}
+  ${moves.map(v=>`<div class="waiting"><span>${v.from===C.SAVINGS?money(v.amount)+' moved to '+esc(catName(v.to)):money(v.amount)+' moved back from '+esc(catName(v.from))} <span class="subtle">${esc(v.person||'')}</span></span><button class="secondary small" type="button" data-act="undo-move" data-id="${esc(v.id)}">Undo</button></div>`).join('')}
+  <div class="actions"><button class="secondary" type="button" data-act="move">Move money to a bucket</button></div>`}
 function renderHome(){
- const s=data.settings,b=C.budget(data,month),spendable=b.cats.filter(c=>c.id!=='savings'&&c.id!=='bills');
+ const s=data.settings,b=C.budget(data,month),spendable=b.cats.filter(c=>c.id!==C.SAVINGS&&c.id!=='bills');
  const left=C.sum(spendable,c=>c.available),billsLeft=b.cats.find(c=>c.id==='bills');
+ renderSavings(b);
  el('heroAmount').textContent=left<0?money(-left)+' over':money(left);el('heroAmount').className='heronum'+(left<0?' over':'');
  el('heroNote').textContent='this month, after your bills'+(billsLeft&&billsLeft.available<0?' (bills are '+money(-billsLeft.available)+' over their budget)':'');
  // buckets: the first four, plus any that are over; everything with one tap
- const list=b.cats.filter(c=>c.id!=='bills'),shown=showAllBuckets?list:list.filter((c,i)=>i<4||c.available<0);
+ const list=b.cats.filter(c=>c.id!=='bills'&&c.id!==C.SAVINGS),shown=showAllBuckets?list:list.filter((c,i)=>i<4||c.available<0);
  el('bucketList').innerHTML=shown.map(bucketRow).join('')+(list.length>shown.length||showAllBuckets?`<button type="button" class="linkbtn" data-act="toggle-buckets" style="color:#245a88;padding:10px 2px;font-size:14px">${showAllBuckets?'Show fewer':'Show all '+list.length+' buckets'}</button>`:'');
  // banks
  const banks=C.bankPayments(data,month),waiting=notInYet(month);
@@ -444,7 +461,7 @@ function renderSettings(){const s=data.settings,cfg=currentConfig();
  el('tab-settings').innerHTML=`
  <div class="card"><h2>Cloud sync</h2>${store.kind==='cloud'?`<p>Signed in as <b>${esc(user?.email||'—')}</b>. Changes appear on every signed-in phone within seconds, and work offline.</p><div class="actions"><button class="secondary" type="button" data-act="share-setup">Copy setup link for another phone</button><button class="secondary" type="button" data-act="signout">Sign out</button>${window.FAMILY_BUDGET_FIREBASE_CONFIG?'':'<button class="secondary" type="button" data-act="disconnect">Stop using cloud on this device</button>'}</div>`:`<p>This budget is saved <b>on this device only</b>. To share it between two phones, connect your free Firebase database (see SETUP.md).</p><label for="cfgText">Firebase config (paste from the Firebase console)</label><textarea id="cfgText" placeholder="const firebaseConfig = { apiKey: ... }">${cfg?esc(JSON.stringify(cfg,null,1)):''}</textarea><div class="actions"><button class="primary" type="button" data-act="connect">Connect</button></div>`}</div>
  <div class="card"><h2>Income & categories</h2><form id="formCats" novalidate><label for="setIncome">Monthly income (₪)</label><input id="setIncome" type="number" step="any" min="0" value="${esc(s.income)}">
-  ${s.categories.map((c,i)=>`<div class="setrow"><div><label>Name</label><input data-cat-name="${i}" value="${esc(c.name)}"></div><div><label>Monthly (₪)</label><input data-cat-limit="${i}" type="number" step="any" min="0" value="${esc(c.limit)}"></div><div><label>Opening carry (₪)</label><input data-cat-open="${i}" type="number" step="any" value="${esc(c.opening||0)}" ${c.rollover?'':'disabled'}></div><div><label><input type="checkbox" data-cat-roll="${i}" ${c.rollover?'checked':''}> Rolls over</label></div></div>`).join('')}
+  ${s.categories.map((c,i)=>`<div class="setrow"><div><label>Name</label><input data-cat-name="${i}" value="${esc(c.name)}"></div><div><label>Monthly (₪)</label><input data-cat-limit="${i}" type="number" step="any" min="0" value="${esc(c.limit)}"></div><div><label>Opening carry (₪)</label><input data-cat-open="${i}" type="number" step="any" value="${esc(c.opening||0)}" ${c.rollover||c.id===C.SAVINGS?'':'disabled'}></div><div><label><input type="checkbox" data-cat-roll="${i}" ${c.id===C.SAVINGS?'checked disabled':c.rollover?'checked':''}> ${c.id===C.SAVINGS?'Collects leftovers':'Rolls over'}</label></div></div>`).join('')}
   <div class="subtle" style="margin-top:8px">Categories total ${money(C.sum(s.categories,c=>c.limit))} of ${money(s.income)} income.</div><div class="actions"><button class="primary" type="submit">Save categories</button></div></form></div>
  <div class="card"><h2>Cards</h2><form id="formCards" novalidate>${s.cards.map((c,i)=>`<div class="setrow"><div><label>Card</label><input data-card-name="${i}" value="${esc(c.name)}"></div><div><label>Bank</label><select data-card-bank="${i}"><option${c.bank==='Leumi'?' selected':''}>Leumi</option><option${c.bank==='Hapoalim'?' selected':''}>Hapoalim</option></select></div><div><label>Payment day</label><input data-card-day="${i}" type="number" min="1" max="28" value="${esc(latestDay(c))}"></div><div><label>New day from bill of</label><input data-card-from="${i}" type="month" value="${esc(nextMonthFor(c))}"></div></div><div class="subtle" style="margin:4px 0 10px">${esc(dayStory(c))}</div>`).join('')}<div class="subtle" style="margin-top:8px">On the 1st or 2nd, a card's bill is the whole previous month. On a later day, purchases before that day are on that month's bill, the rest on the next. If you change a day, earlier bills stay as they were.</div><div class="actions"><button class="primary" type="submit">Save cards</button></div></form></div>
  <div class="card"><h2>Accounts & car reserve</h2><form id="formAcc" novalidate><div class="grid2"><div><label for="accLeumi">Leumi balance (₪)</label><input id="accLeumi" type="number" step="any" value="${esc(s.accounts.leumi)}"></div><div><label for="accHap">Hapoalim balance (₪)</label><input id="accHap" type="number" step="any" value="${esc(s.accounts.hapoalim)}"></div><div><label for="accRes">Protected car reserve (₪)</label><input id="accRes" type="number" step="any" min="0" value="${esc(s.accounts.carReserve)}"></div><div><label for="accDue">Balloon payment due</label><input id="accDue" type="month" value="${esc(s.accounts.carReserveDue||'')}"></div></div>
@@ -466,6 +483,16 @@ function renderSettings(){const s=data.settings,cfg=currentConfig();
  el('formAcc').onsubmit=e=>{e.preventDefault();const v=(id,old)=>el(id).value===''?old:C.round2(el(id).value);write([{op:'settings',data:{...s,accounts:{...s.accounts,leumi:v('accLeumi',s.accounts.leumi),hapoalim:v('accHap',s.accounts.hapoalim),carReserve:v('accRes',s.accounts.carReserve),carReserveDue:el('accDue').value||s.accounts.carReserveDue,asOf:today()}}}],'Balances saved.');render()};
  const pn=el('personName');if(pn)pn.onchange=()=>{lsSet('familyBudgetPerson',pn.value.trim()||'Me')};
 }
+
+// ---- moving money out of Savings into a bucket (for the month on screen) -----------
+function openMove(){const b=C.budget(data,month),sv=b.cats.find(c=>c.id===C.SAVINGS),list=b.cats.filter(c=>c.id!==C.SAVINGS),over=list.find(c=>c.available<0);
+ el('mvInfo').textContent='Savings has '+money(Math.max(sv.available,0))+'. The money is added to the bucket for '+monthLabel(month)+' only.';
+ el('mvTo').innerHTML=list.map(c=>`<option value="${esc(c.id)}"${over&&c.id===over.id?' selected':''}>${esc(c.name)}: ${c.available<0?money(-c.available)+' over':money(c.available)+' left'}</option>`).join('');
+ el('mvAmount').value=over?C.round2(-over.available):'';showErr('mvErr','');openDlg('dlgMove')}
+el('formMove').addEventListener('submit',e=>{e.preventDefault();const amount=C.round2(el('mvAmount').value),to=el('mvTo').value,sv=C.budget(data,month).cats.find(c=>c.id===C.SAVINGS);
+ if(!(amount>0))return showErr('mvErr','Type how much to move.');
+ if(amount>sv.available+0.005)return showErr('mvErr','Savings only has '+money(Math.max(sv.available,0))+'.');
+ if(write([{op:'set',coll:'moves',id:C.newId(),data:{month,from:C.SAVINGS,to,amount,person:person(),date:today()}}],money(amount)+' moved to '+catName(to)+'.')){closeDlg('dlgMove');render()}});
 
 // ---------------------------------------------------------------- backup / restore / migrate
 function download(name,content,type){const url=URL.createObjectURL(new Blob([content],{type})),a=document.createElement('a');a.href=url;a.download=name;a.style.display='none';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000)}
@@ -516,6 +543,8 @@ document.addEventListener('click',async e=>{
   case 'add-expense':openExpense('expense');break;
   case 'add-refund':openExpense('refund');break;
   case 'view-cat':txFilter=b.dataset.id;tab='spending';render();break;
+  case 'move':openMove();break;
+  case 'undo-move':{const id=b.dataset.id,v=data.moves[id];if(v&&await ask('Undo moving '+money(v.amount)+' to '+catName(v.to)+'?',{yes:'Undo'})){write([{op:'delete',coll:'moves',id}],'Move undone.');render()}break}
   case 'toggle-buckets':showAllBuckets=!showAllBuckets;render();break;
   case 'downloaded':lsSet('familyBudgetDownloaded',month);render();break;
   case 'edit-tx':{const id=b.dataset.id,t=data.transactions[id]?{...data.transactions[id],id}:C.itemsForMonth(data,month).find(x=>x.id===id)||[-2,-1,1].flatMap(n=>C.itemsForMonth(data,C.addMonths(month,n))).find(x=>x.id===id);if(t)openExpense(t.type,t);else{banner('That item could not be found (it may have changed on the other phone).','warn');render()}break}

@@ -11,6 +11,7 @@
  *                       person, billId?, billMonth?, statementMonth?, importKey?} }
  *   statements   { id: {card, month, amount, status:'final'|'partial', asOf?} }
  *   merchants    { key: {category} }   — learned from your corrections
+ *   moves        { id: {month, from, to, amount, person, date} }: money moved between buckets
  */
 (function(root){'use strict';
 const C={};
@@ -35,7 +36,7 @@ C.newId=()=>(typeof crypto!=='undefined'&&crypto.randomUUID)?crypto.randomUUID()
 // Example values only — no real figures live in this public file.
 C.defaultSettings=()=>({
  income:20000,startMonth:C.todayStr().slice(0,7),
- categories:[['bills','Bills & commitments',8000,false],['groceries','Groceries & household',4000,false],['fuel','Fuel',800,false],['dining','Restaurants & delivery',600,false],['fun','Family activities',500,true],['clothes','Clothing & shoes',400,true],['car','Car maintenance',400,true],['holidays','Holidays & birthdays',400,true],['medical','Medical & healthcare',400,true],['unexpected','Unexpected expenses',500,true],['savings','Emergency savings',500,true],['buffer','General buffer',300,false]].map(([id,name,limit,rollover])=>({id,name,limit,rollover,opening:0})),
+ categories:[['bills','Bills & commitments',8000,false],['groceries','Groceries & household',4000,false],['fuel','Fuel',800,false],['dining','Restaurants & delivery',600,false],['fun','Family activities',500,true],['clothes','Clothing & shoes',400,true],['car','Car maintenance',400,true],['holidays','Holidays & birthdays',400,true],['medical','Medical & healthcare',400,true],['unexpected','Unexpected expenses',500,true],['savings','Savings',500,true],['buffer','General buffer',300,false]].map(([id,name,limit,rollover])=>({id,name,limit,rollover,opening:0})),
  cards:[{id:'card-1',name:'Card 1',bank:'Leumi',day:10},{id:'card-2',name:'Card 2',bank:'Hapoalim',day:15}],
  accounts:{leumi:0,hapoalim:0,carReserve:0,carReserveDue:'',asOf:''}
 });
@@ -48,7 +49,7 @@ C.defaultBills=()=>[
  bill('util-water','Water',150,15,'bank-hapoalim',{kind:'variable'}),
  bill('util-gas','Gas',30,15,'bank-hapoalim',{kind:'variable'})
 ];
-C.emptyDb=()=>({settings:C.defaultSettings(),bills:Object.fromEntries(C.defaultBills().map(b=>[b.id,b])),transactions:{},statements:{},merchants:{}});
+C.emptyDb=()=>({settings:C.defaultSettings(),bills:Object.fromEntries(C.defaultBills().map(b=>[b.id,b])),transactions:{},statements:{},merchants:{},moves:{}});
 
 // ---- payment methods -------------------------------------------------------------
 C.BANK_METHODS=[{id:'bank-leumi',name:'Bank transfer / Leumi',bank:'Leumi',type:'bank'},{id:'bank-hapoalim',name:'Bank transfer / Hapoalim',bank:'Hapoalim',type:'bank'},{id:'cash',name:'Cash / other',bank:null,type:'cash'}];
@@ -130,13 +131,29 @@ C.itemsForMonth=(db,m)=>{const sp=spreadIds(db);return [...txList(db).filter(t=>
 C.paymentItemsForMonth=(db,m)=>[...txList(db).filter(t=>C.monthOf(t.date)===m),...C.paymentOccurrences(db,m)];
 
 // ---- budget --------------------------------------------------------------------
-C.categoryMonth=(db,catId,m)=>{let spent=0,reserved=0;for(const t of C.itemsForMonth(db,m)){if(t.category!==catId)continue;if(t.estimate)reserved+=Number(t.amount);else spent+=C.signed(t)}return {spent:C.round2(spent),reserved:C.round2(reserved)}};
-C.available=(db,cat,m)=>{
- const s=db.settings,limit=Number(cat.limit)||0,{spent,reserved}=C.categoryMonth(db,cat.id,m);let left=limit-spent-reserved;
- if(cat.rollover&&m>=s.startMonth){left+=Number(cat.opening)||0;for(let mo=s.startMonth,g=0;mo<m&&g<600;g++,mo=C.addMonths(mo,1)){const x=C.categoryMonth(db,cat.id,mo);left+=limit-x.spent-x.reserved}}
- return C.round2(left);
-};
-C.budget=(db,m)=>{const cats=db.settings.categories.map(c=>({...c,...C.categoryMonth(db,c.id,m),available:C.available(db,c,m)}));return {cats,left:C.sum(cats,c=>c.available)}};
+// Money moved between buckets in a month, e.g. from Savings to Groceries.
+const moveList=db=>Object.entries(db.moves||{}).map(([id,v])=>({...v,id}));
+C.movesInMonth=(db,m)=>moveList(db).filter(v=>v.month===m);
+const ZERO={spent:0,reserved:0,moved:0};
+C.monthTotals=(db,m)=>{const o={},g=id=>o[id]||(o[id]={spent:0,reserved:0,moved:0});
+ for(const t of C.itemsForMonth(db,m)){const x=g(t.category);if(t.estimate)x.reserved+=Number(t.amount)||0;else x.spent+=C.signed(t)}
+ for(const v of C.movesInMonth(db,m)){const a=Number(v.amount)||0;g(v.from).moved-=a;g(v.to).moved+=a}
+ for(const x of Object.values(o)){x.spent=C.round2(x.spent);x.reserved=C.round2(x.reserved);x.moved=C.round2(x.moved)}
+ return o};
+C.categoryMonth=(db,catId,m)=>({...(C.monthTotals(db,m)[catId]||ZERO)});
+C.SAVINGS='savings';
+// A bucket has its monthly amount, plus money moved in, minus spending and bills not in yet.
+// A bucket that rolls over keeps what earlier months left (or overspent); every other
+// bucket's leftover (or overspending) goes to Savings when its month ends.
+C.budget=(db,m)=>{
+ const s=db.settings,cats=s.categories,hasSav=cats.some(c=>c.id===C.SAVINGS),keeps=c=>!!c.rollover||c.id===C.SAVINGS,carry={};let swept=0;
+ for(const c of cats)carry[c.id]=keeps(c)?Number(c.opening)||0:0;
+ if(m>=s.startMonth)for(let mo=s.startMonth,g=0;mo<m&&g<600;g++,mo=C.addMonths(mo,1)){const T=C.monthTotals(db,mo);swept=0;
+  for(const c of cats){const x=T[c.id]||ZERO,left=(Number(c.limit)||0)+x.moved-x.spent-x.reserved;if(keeps(c))carry[c.id]+=left;else if(hasSav){carry[C.SAVINGS]+=left;swept+=left}}}
+ const T=C.monthTotals(db,m),before=m>s.startMonth;
+ const out=cats.map(c=>{const x=T[c.id]||ZERO,cin=m>=s.startMonth?carry[c.id]:0;return {...c,...x,carry:C.round2(cin),available:C.round2((Number(c.limit)||0)+x.moved-x.spent-x.reserved+cin)}});
+ return {cats:out,left:C.sum(out,c=>c.available),swept:before?C.round2(swept):0}};
+C.available=(db,cat,m)=>{const cs=db.settings.categories,b=C.budget({...db,settings:{...db.settings,categories:cs.some(c=>c.id===cat.id)?cs.map(c=>c.id===cat.id?cat:c):[...cs,cat]}},m);return b.cats.find(c=>c.id===cat.id).available};
 
 // ---- card collections ("the statement wins") -----------------------------------
 C.dueMonthOf=(t,card)=>C.isMonth(t.statementMonth)?t.statementMonth:C.collectionMonth(t.date,card);
@@ -316,8 +333,8 @@ C.parseFirebaseConfig=text=>{
 // ---- backups -------------------------------------------------------------------
 C.BACKUP_FORMAT='family-budget-v3';
 C.isBackup=o=>!!o&&o.format===C.BACKUP_FORMAT&&o.settings&&typeof o.bills==='object';
-C.makeBackup=db=>({format:C.BACKUP_FORMAT,exportedAt:new Date().toISOString(),settings:db.settings,bills:db.bills,transactions:db.transactions,statements:db.statements,merchants:db.merchants});
-C.fromBackup=o=>({settings:{...C.defaultSettings(),...o.settings},bills:o.bills||{},transactions:o.transactions||{},statements:o.statements||{},merchants:o.merchants||{}});
+C.makeBackup=db=>({format:C.BACKUP_FORMAT,exportedAt:new Date().toISOString(),settings:db.settings,bills:db.bills,transactions:db.transactions,statements:db.statements,merchants:db.merchants,moves:db.moves||{}});
+C.fromBackup=o=>({settings:{...C.defaultSettings(),...o.settings},bills:o.bills||{},transactions:o.transactions||{},statements:o.statements||{},merchants:o.merchants||{},moves:o.moves||{}});
 
 root.BudgetCore=C;
 })(typeof window!=='undefined'?window:globalThis);
