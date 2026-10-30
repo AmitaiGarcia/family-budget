@@ -68,7 +68,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 
 <!-- ============ dialogs ============ -->
 <dialog id="dlgExpense"><form id="formExpense" novalidate><div class="mhead" id="expHead">Add a purchase</div>
- <div id="expScanWrap"><button class="secondary" type="button" id="expScan" style="width:100%">📷 Scan a receipt</button><div class="subtle" id="expScanInfo" style="margin-top:6px"></div></div>
+ <div id="expScanWrap"><button class="secondary" type="button" id="expScan" style="width:100%">📷 Scan a receipt</button><div class="subtle" id="expScanInfo" style="margin-top:6px"></div><div id="expScanWarn" style="margin-top:6px;color:#8a5a00;font-weight:600"></div></div>
  <label for="expAmount">How much (₪)</label><input id="expAmount" type="number" inputmode="decimal" step="any" min="0">
  <label for="expNote">What was it</label><input id="expNote" placeholder="Shufersal, fuel, pharmacy…">
  <div class="grid2"><div><label for="expCategory">Bucket</label><select id="expCategory"></select></div><div><label for="expDate">Date</label><input id="expDate" type="date"></div></div>
@@ -116,7 +116,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 <input type="file" id="fileBackup" accept=".json,application/json" class="hidden">
 
 <!-- the ?v= number must change with APP below on every update, so phones never mix an old core.js with a new page -->
-<script src="core.js?v=3.4"></script>
+<script src="core.js?v=3.5"></script>
 <script>
 // The family's Firebase project. This is not a secret: the Firestore rules decide who can read the data.
 window.FAMILY_BUDGET_FIREBASE_CONFIG = {
@@ -130,7 +130,7 @@ window.FAMILY_BUDGET_FIREBASE_CONFIG = {
 </script>
 <script>
 (()=>{'use strict';
-const C=window.BudgetCore,APP='3.4',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
+const C=window.BudgetCore,APP='3.5',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
 const el=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=x=>(Number(x)<0?'−':'')+'₪'+Math.abs(Number(x||0)).toLocaleString('en-US',{maximumFractionDigits:2});
 const monthLabel=m=>C.isMonth(m)?new Date(m+'-02T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'}):'—';
@@ -332,7 +332,7 @@ function openExpense(type='expense',tx=null){
  el('expAmount').value=tx?tx.amount:'';el('expCategory').innerHTML=catOptions(tx?.category||'groceries',tx?.category);
  el('expDate').value=tx?.date||(thisMonth()===month?today():month+'-01');el('expMethod').innerHTML=methodOptions(tx?.method||s.cards[0]?.id);
  el('expStmt').value=tx?.statementMonth||'';el('expNote').value=tx?.note||'';showErr('expErr','');
- el('expDelete').classList.toggle('hidden',!tx);el('expScanWrap').classList.toggle('hidden',!!tx);el('expScanInfo').textContent='';el('expDelete').textContent=tx?.virtual?'Skip this month':'Delete';
+ el('expDelete').classList.toggle('hidden',!tx);el('expScanWrap').classList.toggle('hidden',!!tx);el('expScanInfo').textContent='';el('expScanWarn').textContent='';el('expDelete').textContent=tx?.virtual?'Skip this month':'Delete';
  updateExpInfo();openDlg('dlgExpense');
 }
 // One plain sentence: which month's budget it counts in, and when the bank pays it.
@@ -376,17 +376,21 @@ function scanError(e,A){const st=e?.status,msg=String(e?.message||e);
  return 'The receipt could not be read ('+msg+'). Type it in instead.'}
 el('expScan').onclick=()=>{if(!claudeKey()){showErr('expErr','To scan receipts, add your Claude key in Settings first.');return}el('fileReceipt').click()};
 el('fileReceipt').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
- const info=el('expScanInfo'),btn=el('expScan');showErr('expErr','');info.textContent='Reading the receipt… (a few seconds)';btn.disabled=true;let A=null;
+ const info=el('expScanInfo'),btn=el('expScan');el('expScanWarn').textContent='';showErr('expErr','');info.textContent='Reading the receipt… (a few seconds)';btn.disabled=true;let A=null;
  try{const x=await readReceipt(f);A=x.Anthropic;
   if(!x.readable||!(x.total>0)){info.textContent='';showErr('expErr','Could not find the total on this photo. Try a sharper photo, or type it in.');return}
   el('expAmount').value=C.round2(x.total);if(x.store)el('expNote').value=x.store;if(C.isDate(x.date))el('expDate').value=x.date;
   const learned=x.store?C.guessCategory(x.store,data.merchants,data.settings.categories):null,cat=learned?.source==='learned'?learned.category:x.category;
   if(data.settings.categories.some(c=>c.id===cat))el('expCategory').value=cat;
   const card=/^\d{4}$/.test(x.card_last4)?data.settings.cards.find(c=>c.name.includes(x.card_last4)):null;if(card)el('expMethod').value=card.id;
+  // a receipt from another month counts in that month's budget: say so before it is saved
+  const d=C.isDate(x.date)?x.date:'',now=thisMonth(),warn=!d?'No date found on the receipt. Check the date below.':d>today()?'The date on the receipt ('+dayLabel(d)+') is in the future, so it was probably misread. Check the date below.':C.monthOf(d)<data.settings.startMonth?'This receipt is from '+dayLabel(d)+', before your budget started. It will not count in any bucket.':C.monthOf(d)!==now?'This receipt is from '+monthLabel(C.monthOf(d))+', so it counts in '+monthLabel(C.monthOf(d))+'’s budget, not '+monthLabel(now)+'’s. Is that right?':'';
+  el('expScanWarn').textContent=warn?'⚠ '+warn:'';
   updateExpInfo();info.textContent='Filled in from the receipt. Check it, then tap Save.'+(card||!/^\d{4}$/.test(x.card_last4)?'':' (Card ending '+x.card_last4+' is not in Settings.)')}
  catch(err){info.textContent='';if(!A)try{A=(await import(SDK_URL)).default}catch{}showErr('expErr',scanError(err,A))}
  finally{btn.disabled=false}};
 ['expMethod','expDate','expStmt','expCategory','expRefund'].forEach(id=>el(id).addEventListener('change',updateExpInfo));
+el('expDate').addEventListener('change',()=>{el('expScanWarn').textContent=''});   // the date was checked by hand
 el('formExpense').addEventListener('submit',e=>{e.preventDefault();
  const amount=C.round2(el('expAmount').value),date=el('expDate').value,cat=el('expCategory').value,method=el('expMethod').value;
  if(!(amount>0))return showErr('expErr','Type how much it was.');if(!C.isDate(date))return showErr('expErr','Choose the date.');if(!cat)return showErr('expErr','Choose a bucket.');
