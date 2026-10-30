@@ -68,6 +68,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 
 <!-- ============ dialogs ============ -->
 <dialog id="dlgExpense"><form id="formExpense" novalidate><div class="mhead" id="expHead">Add a purchase</div>
+ <div id="expScanWrap"><button class="secondary" type="button" id="expScan" style="width:100%">📷 Scan a receipt</button><div class="subtle" id="expScanInfo" style="margin-top:6px"></div></div>
  <label for="expAmount">How much (₪)</label><input id="expAmount" type="number" inputmode="decimal" step="any" min="0">
  <label for="expNote">What was it</label><input id="expNote" placeholder="Shufersal, fuel, pharmacy…">
  <div class="grid2"><div><label for="expCategory">Bucket</label><select id="expCategory"></select></div><div><label for="expDate">Date</label><input id="expDate" type="date"></div></div>
@@ -110,11 +111,12 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
  <div class="actions"><button class="primary" type="submit">Move</button><button class="secondary" type="button" data-close>Cancel</button></div></form></dialog>
 <dialog id="dlgAsk"><div class="mhead" id="askHead">Are you sure?</div><p id="askText" style="white-space:pre-line"></p><div class="actions"><button class="primary" type="button" id="askYes">Yes</button><button class="secondary" type="button" id="askNo">Cancel</button></div></dialog>
 <dialog id="dlgImport" class="wide"><div class="mhead">Import card transactions</div><div id="impBody"></div></dialog>
+<input type="file" id="fileReceipt" accept="image/*" class="hidden">
 <input type="file" id="fileImport" accept=".csv,.xlsx,.xls,text/csv" class="hidden">
 <input type="file" id="fileBackup" accept=".json,application/json" class="hidden">
 
 <!-- the ?v= number must change with APP below on every update, so phones never mix an old core.js with a new page -->
-<script src="core.js?v=3.3"></script>
+<script src="core.js?v=3.4"></script>
 <script>
 // The family's Firebase project. This is not a secret: the Firestore rules decide who can read the data.
 window.FAMILY_BUDGET_FIREBASE_CONFIG = {
@@ -128,7 +130,7 @@ window.FAMILY_BUDGET_FIREBASE_CONFIG = {
 </script>
 <script>
 (()=>{'use strict';
-const C=window.BudgetCore,APP='3.3',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
+const C=window.BudgetCore,APP='3.4',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
 const el=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=x=>(Number(x)<0?'−':'')+'₪'+Math.abs(Number(x||0)).toLocaleString('en-US',{maximumFractionDigits:2});
 const monthLabel=m=>C.isMonth(m)?new Date(m+'-02T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'}):'—';
@@ -330,7 +332,7 @@ function openExpense(type='expense',tx=null){
  el('expAmount').value=tx?tx.amount:'';el('expCategory').innerHTML=catOptions(tx?.category||'groceries',tx?.category);
  el('expDate').value=tx?.date||(thisMonth()===month?today():month+'-01');el('expMethod').innerHTML=methodOptions(tx?.method||s.cards[0]?.id);
  el('expStmt').value=tx?.statementMonth||'';el('expNote').value=tx?.note||'';showErr('expErr','');
- el('expDelete').classList.toggle('hidden',!tx);el('expDelete').textContent=tx?.virtual?'Skip this month':'Delete';
+ el('expDelete').classList.toggle('hidden',!tx);el('expScanWrap').classList.toggle('hidden',!!tx);el('expScanInfo').textContent='';el('expDelete').textContent=tx?.virtual?'Skip this month':'Delete';
  updateExpInfo();openDlg('dlgExpense');
 }
 // One plain sentence: which month's budget it counts in, and when the bank pays it.
@@ -341,6 +343,49 @@ function updateExpInfo(){const m=C.method(data.settings,el('expMethod').value),d
  let t=refund?'Goes back into '+catName(el('expCategory').value)+' for '+monthLabel(C.monthOf(d))+'. Only add it once the money is back.':'Counts in '+monthLabel(C.monthOf(d))+'.';
  if(!refund&&m?.type==='card'){const due=C.isMonth(el('expStmt').value)?el('expStmt').value:C.collectionMonth(d,m);t+=' The bank pays it with the '+m.name+' bill on '+dayLabel(C.collectionDate(due,m))+'.'}
  el('expInfo').textContent=t}
+// ---- receipt scanning with Claude ----------------------------------------------------
+// The Claude key is kept on this phone only (never in the shared budget, backups or code).
+const KEY_KEY='familyBudgetClaudeKey',SDK_URL='https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.134.0/+esm';
+const claudeKey=()=>(lsGet(KEY_KEY)||'').trim();
+// A phone photo shrunk to a size Claude reads well (long side 1568px), as base64 JPEG.
+async function receiptImage(file){const bmp=await createImageBitmap(file),k=Math.min(1,1568/Math.max(bmp.width,bmp.height)),c=document.createElement('canvas');
+ c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+ const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',0.85));const buf=new Uint8Array(await blob.arrayBuffer());let s='';for(let i=0;i<buf.length;i+=0x8000)s+=String.fromCharCode(...buf.subarray(i,i+0x8000));return btoa(s)}
+async function readReceipt(file){
+ const {default:Anthropic}=await import(SDK_URL),client=new Anthropic({apiKey:claudeKey(),dangerouslyAllowBrowser:true});
+ const cats=data.settings.categories.filter(c=>c.id!==C.SAVINGS);
+ const schema={type:'object',additionalProperties:false,required:['readable','store','total','date','category','card_last4'],properties:{
+  readable:{type:'boolean'},store:{type:'string'},total:{type:'number'},date:{type:'string'},category:{type:'string',enum:cats.map(c=>c.id)},card_last4:{type:'string'}}};
+ const prompt=`This is a photo of a shop receipt from Israel (usually Hebrew, amounts in ₪). Read it for a family budget app.
+- store: the shop's name, short. Use the usual English name for a well-known chain (e.g. Shufersal, Rami Levy, Super-Pharm, Paz); otherwise as printed.
+- total: the final amount paid, in shekels (the line like סה"כ לתשלום / לתשלום / סה"כ), after discounts. A number, no currency sign.
+- date: the purchase date as YYYY-MM-DD (Israeli receipts print day/month/year). Empty string if you can't see it.
+- category: the best bucket for this purchase, one of: ${cats.map(c=>c.id+' ('+c.name+')').join(', ')}.
+- card_last4: the last 4 digits of the payment card if printed, else empty string.
+- readable: false if this is not a receipt or the total can't be read.`;
+ const r=await client.beta.messages.create({model:'claude-opus-5-5',max_tokens:16000,betas:['server-side-fallback-2026-07-01'],fallbacks:'default',
+  output_config:{effort:'low',format:{type:'json_schema',schema}},
+  messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:await receiptImage(file)}},{type:'text',text:prompt}]}]});
+ if(r.stop_reason==='refusal')throw Error('Claude could not read this photo');
+ const text=r.content.find(b=>b.type==='text')?.text;if(!text)throw Error('no answer came back');return {...JSON.parse(text),Anthropic}}
+function scanError(e,A){const st=e?.status,msg=String(e?.message||e);
+ if(A&&e instanceof A.AuthenticationError)return 'The Claude key is not accepted. Check it in Settings.';
+ if(/credit balance/i.test(msg))return 'Your Claude account is out of credit. Add credit at console.anthropic.com.';
+ if(A&&(e instanceof A.RateLimitError||st===529||st>=500))return 'Claude is busy right now. Try again in a minute.';
+ if(A&&e instanceof A.APIConnectionError||!navigator.onLine)return 'No internet connection. Scanning needs internet.';
+ return 'The receipt could not be read ('+msg+'). Type it in instead.'}
+el('expScan').onclick=()=>{if(!claudeKey()){showErr('expErr','To scan receipts, add your Claude key in Settings first.');return}el('fileReceipt').click()};
+el('fileReceipt').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+ const info=el('expScanInfo'),btn=el('expScan');showErr('expErr','');info.textContent='Reading the receipt… (a few seconds)';btn.disabled=true;let A=null;
+ try{const x=await readReceipt(f);A=x.Anthropic;
+  if(!x.readable||!(x.total>0)){info.textContent='';showErr('expErr','Could not find the total on this photo. Try a sharper photo, or type it in.');return}
+  el('expAmount').value=C.round2(x.total);if(x.store)el('expNote').value=x.store;if(C.isDate(x.date))el('expDate').value=x.date;
+  const learned=x.store?C.guessCategory(x.store,data.merchants,data.settings.categories):null,cat=learned?.source==='learned'?learned.category:x.category;
+  if(data.settings.categories.some(c=>c.id===cat))el('expCategory').value=cat;
+  const card=/^\d{4}$/.test(x.card_last4)?data.settings.cards.find(c=>c.name.includes(x.card_last4)):null;if(card)el('expMethod').value=card.id;
+  updateExpInfo();info.textContent='Filled in from the receipt. Check it, then tap Save.'+(card||!/^\d{4}$/.test(x.card_last4)?'':' (Card ending '+x.card_last4+' is not in Settings.)')}
+ catch(err){info.textContent='';if(!A)try{A=(await import(SDK_URL)).default}catch{}showErr('expErr',scanError(err,A))}
+ finally{btn.disabled=false}};
 ['expMethod','expDate','expStmt','expCategory','expRefund'].forEach(id=>el(id).addEventListener('change',updateExpInfo));
 el('formExpense').addEventListener('submit',e=>{e.preventDefault();
  const amount=C.round2(el('expAmount').value),date=el('expDate').value,cat=el('expCategory').value,method=el('expMethod').value;
@@ -464,6 +509,8 @@ function dayStory(c){const ch=[...(c.changes||[])].sort((a,b)=>a.from.localeComp
 function renderSettings(){const s=data.settings,cfg=currentConfig();
  el('tab-settings').innerHTML=`
  <div class="card"><h2>Cloud sync</h2>${store.kind==='cloud'?`<p>Signed in as <b>${esc(user?.email||'—')}</b>. Changes appear on every signed-in phone within seconds, and work offline.</p><div class="actions"><button class="secondary" type="button" data-act="share-setup">Copy setup link for another phone</button><button class="secondary" type="button" data-act="signout">Sign out</button>${window.FAMILY_BUDGET_FIREBASE_CONFIG?'':'<button class="secondary" type="button" data-act="disconnect">Stop using cloud on this device</button>'}</div>`:`<p>This budget is saved <b>on this device only</b>. To share it between two phones, connect your free Firebase database (see SETUP.md).</p><label for="cfgText">Firebase config (paste from the Firebase console)</label><textarea id="cfgText" placeholder="const firebaseConfig = { apiKey: ... }">${cfg?esc(JSON.stringify(cfg,null,1)):''}</textarea><div class="actions"><button class="primary" type="button" data-act="connect">Connect</button></div>`}</div>
+ <div class="card"><h2>Receipt scanning</h2><p class="subtle">Scanning sends the receipt photo to Claude, which fills in the purchase for you. It needs your own Claude key from console.anthropic.com. The key is kept on <b>this phone only</b>: add it on each phone.</p>${claudeKey()?`<p>A key is saved on this phone (ending …${esc(claudeKey().slice(-4))}).</p><div class="actions"><button class="secondary" type="button" data-act="remove-key">Remove key</button></div>`:`<label for="claudeKeyIn">Claude key</label><input id="claudeKeyIn" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…"><div class="actions"><button class="primary" type="button" data-act="save-key">Save key</button></div>`}</div>
+
  <div class="card"><h2>Income & categories</h2><form id="formCats" novalidate><label for="setIncome">Monthly income (₪)</label><input id="setIncome" type="number" step="any" min="0" value="${esc(s.income)}">
   ${s.categories.map((c,i)=>`<div class="setrow"><div><label>Name</label><input data-cat-name="${i}" value="${esc(c.name)}"></div><div><label>Monthly (₪)</label><input data-cat-limit="${i}" type="number" step="any" min="0" value="${esc(c.limit)}"></div><div><label>Opening carry (₪)</label><input data-cat-open="${i}" type="number" step="any" value="${esc(c.opening||0)}" ${c.rollover||c.id===C.SAVINGS?'':'disabled'}></div><div><label><input type="checkbox" data-cat-roll="${i}" ${c.id===C.SAVINGS?'checked disabled':c.rollover?'checked':''}> ${c.id===C.SAVINGS?'Always keeps':'Rolls over'}</label></div></div>`).join('')}
   <div class="subtle" style="margin-top:8px">Categories total ${money(C.sum(s.categories,c=>c.limit))} of ${money(s.income)} income.</div><div class="actions"><button class="primary" type="submit">Save categories</button></div></form></div>
@@ -550,6 +597,8 @@ document.addEventListener('click',async e=>{
   case 'add-expense':openExpense('expense');break;
   case 'add-refund':openExpense('refund');break;
   case 'view-cat':txFilter=b.dataset.id;tab='spending';render();break;
+  case 'save-key':{const k=el('claudeKeyIn').value.trim();if(!/^sk-ant-\S{20,}$/.test(k)){banner('That does not look like a Claude key. It starts with sk-ant-.','warn');break}if(lsSet(KEY_KEY,k)){flash('Key saved on this phone. You can now scan receipts.');render()}else banner('This browser will not store the key. Open the app in a normal browser tab.');break}
+  case 'remove-key':if(await ask('Remove the Claude key from this phone? Scanning stops on this phone until you add it again.',{yes:'Remove'})){try{localStorage.removeItem(KEY_KEY)}catch{}render()}break;
   case 'hint-skip':lsSet('familyBudgetHintSkip',JSON.stringify({...hintSkips(),[b.dataset.id]:month}));render();break;
   case 'raise':{const s=data.settings,id=b.dataset.id,amount=Number(b.dataset.amount),cats=s.categories.map(c=>c.id===id?{...c,limit:amount}:c),total=C.sum(cats,c=>c.limit);if(write([{op:'settings',data:{...s,categories:cats}}],catName(id)+' is now '+money(amount)+' a month.'+(total>s.income?' Your buckets now add up to '+money(total)+', more than your '+money(s.income)+' income: lower another bucket in Settings.':'')))render();break}
   case 'move-out':openMove('out');break;
