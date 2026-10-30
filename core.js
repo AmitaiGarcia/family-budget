@@ -143,16 +143,24 @@ C.monthTotals=(db,m)=>{const o={},g=id=>o[id]||(o[id]={spent:0,reserved:0,moved:
 C.categoryMonth=(db,catId,m)=>({...(C.monthTotals(db,m)[catId]||ZERO)});
 C.SAVINGS='savings';
 // A bucket has its monthly amount, plus money moved in, minus spending and bills not in yet.
-// A bucket that rolls over (Savings always does) keeps what earlier months left, or overspent;
-// any other bucket starts each month fresh. Money only reaches Savings when you move it there.
+// A bucket that rolls over (Savings always does) keeps what earlier months left over;
+// any other bucket starts each month fresh. Overspending never carries: a bucket always
+// starts a month with at least its monthly amount (C.overspendHints suggests raising it instead).
+// Money only reaches Savings when you move it there.
 C.budget=(db,m)=>{
  const s=db.settings,cats=s.categories,keeps=c=>!!c.rollover||c.id===C.SAVINGS,carry={};
- for(const c of cats)carry[c.id]=keeps(c)?Number(c.opening)||0:0;
+ for(const c of cats)carry[c.id]=keeps(c)?Math.max(0,Number(c.opening)||0):0;
  if(m>=s.startMonth)for(let mo=s.startMonth,g=0;mo<m&&g<600;g++,mo=C.addMonths(mo,1)){const T=C.monthTotals(db,mo);
-  for(const c of cats)if(keeps(c)){const x=T[c.id]||ZERO;carry[c.id]+=(Number(c.limit)||0)+x.moved-x.spent-x.reserved}}
+  for(const c of cats)if(keeps(c)){const x=T[c.id]||ZERO;carry[c.id]=Math.max(0,carry[c.id]+(Number(c.limit)||0)+x.moved-x.spent-x.reserved)}}
  const T=C.monthTotals(db,m);
  const out=cats.map(c=>{const x=T[c.id]||ZERO,cin=m>=s.startMonth?carry[c.id]:0;return {...c,...x,carry:C.round2(cin),available:C.round2((Number(c.limit)||0)+x.moved-x.spent-x.reserved+cin)}});
  return {cats:out,left:C.sum(out,c=>c.available)}};
+// Buckets that ended over budget in each of the last two finished months (before m),
+// with a new monthly amount that would have covered the average overspend (rounded up to ₪50).
+C.overspendHints=(db,m)=>{const s=db.settings,p1=C.addMonths(m,-1),p2=C.addMonths(m,-2);if(p2<s.startMonth)return [];
+ const b1=C.budget(db,p1).cats,b2=C.budget(db,p2).cats;
+ return s.categories.filter(c=>c.id!==C.SAVINGS).map(c=>{const a=b1.find(x=>x.id===c.id),b=b2.find(x=>x.id===c.id);if(!(a&&b&&a.available<0&&b.available<0))return null;
+  const avg=C.round2((-a.available-b.available)/2),limit=Number(c.limit)||0;return {id:c.id,name:c.name,limit,avgOver:avg,suggest:limit+Math.ceil(avg/50)*50}}).filter(Boolean)};
 C.available=(db,cat,m)=>{const cs=db.settings.categories,b=C.budget({...db,settings:{...db.settings,categories:cs.some(c=>c.id===cat.id)?cs.map(c=>c.id===cat.id?cat:c):[...cs,cat]}},m);return b.cats.find(c=>c.id===cat.id).available};
 
 // ---- card collections ("the statement wins") -----------------------------------

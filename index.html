@@ -46,6 +46,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 
  <section id="tab-home" class="tab">
   <div id="downloadDay"></div>
+  <div id="overHints"></div>
   <div class="card hero"><div class="subtle">You can still spend</div><div id="heroAmount" class="heronum">—</div><div class="subtle" id="heroNote"></div></div>
   <div class="card" id="savingsCard"></div>
   <div class="card"><h2>Left in each bucket</h2><div id="bucketList"></div></div>
@@ -113,7 +114,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 <input type="file" id="fileBackup" accept=".json,application/json" class="hidden">
 
 <!-- the ?v= number must change with APP below on every update, so phones never mix an old core.js with a new page -->
-<script src="core.js?v=3.2"></script>
+<script src="core.js?v=3.3"></script>
 <script>
 // The family's Firebase project. This is not a secret: the Firestore rules decide who can read the data.
 window.FAMILY_BUDGET_FIREBASE_CONFIG = {
@@ -127,13 +128,14 @@ window.FAMILY_BUDGET_FIREBASE_CONFIG = {
 </script>
 <script>
 (()=>{'use strict';
-const C=window.BudgetCore,APP='3.2',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
+const C=window.BudgetCore,APP='3.3',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
 const el=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=x=>(Number(x)<0?'−':'')+'₪'+Math.abs(Number(x||0)).toLocaleString('en-US',{maximumFractionDigits:2});
 const monthLabel=m=>C.isMonth(m)?new Date(m+'-02T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'}):'—';
 const dayLabel=d=>C.isDate(d)?new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}):d;
 const today=()=>C.todayStr(),thisMonth=()=>today().slice(0,7);
 const lsGet=k=>{try{return localStorage.getItem(k)}catch{return null}},lsSet=(k,v)=>{try{localStorage.setItem(k,v);return true}catch{return false}};
+const hintSkips=()=>{try{return JSON.parse(lsGet('familyBudgetHintSkip')||'{}')||{}}catch{return {}}};
 
 // ---------------------------------------------------------------- messages
 function banner(msg,kind='error'){const b=el('banner');b.className='app-banner '+kind;b.innerHTML='<span>'+esc(msg)+'</span><button type="button" class="secondary small" data-act="dismiss">Dismiss</button>'}
@@ -241,7 +243,7 @@ let showAllBuckets=false;
 const notInYet=m=>C.occurrences(data,m).filter(o=>o.estimate);
 function bucketRow(c){
  const lim=Number(c.limit)||0,used=c.spent+c.reserved,room=Math.max(lim+c.moved+Math.max(c.carry,0),1),pct=Math.max(0,Math.min(100,used/room*100)),over=c.available<0;
- const notes=[c.carry>0.5?'includes '+money(c.carry)+' saved from earlier months':c.carry<-0.5?money(-c.carry)+' less because of overspending earlier':'',c.moved>0.5?'includes '+money(c.moved)+' from Savings':c.moved<-0.5?money(-c.moved)+' moved out':''].filter(Boolean).join(' · ');
+ const notes=[c.carry>0.5?'includes '+money(c.carry)+' saved from earlier months':'',c.moved>0.5?'includes '+money(c.moved)+' from Savings':c.moved<-0.5?money(-c.moved)+' moved out':''].filter(Boolean).join(' · ');
  return `<button type="button" class="bucket" data-act="view-cat" data-id="${esc(c.id)}"><div class="row"><span>${esc(c.name)}</span><span class="left ${over?'over':''}">${over?money(-c.available)+' over':money(c.available)+' left'} <span class="of">of ${money(lim)}</span></span></div>${notes?`<div class="subtle" style="margin-top:2px">${notes}</div>`:''}<div class="bar"><div class="fill ${over?'over':pct>85?'warning':''}" style="width:${pct}%"></div></div></button>`}
 // Savings: money you choose to put aside from a bucket, and take back when a bucket needs it.
 function renderSavings(b){
@@ -255,6 +257,9 @@ function renderHome(){
  const s=data.settings,b=C.budget(data,month),spendable=b.cats.filter(c=>c.id!==C.SAVINGS&&c.id!=='bills');
  const left=C.sum(spendable,c=>c.available),billsLeft=b.cats.find(c=>c.id==='bills');
  renderSavings(b);
+ // a bucket over budget two months running: offer to raise it (hidden per bucket once "Not now" is tapped this month)
+ const skip=hintSkips();
+ el('overHints').innerHTML=C.overspendHints(data,month).filter(h=>skip[h.id]!==month).map(h=>`<div class="dd"><b>${esc(h.name)} went over 2 months in a row</b><div style="margin:6px 0 10px">On average ${money(h.avgOver)} over. Its budget is probably too low: raise it from ${money(h.limit)} to ${money(h.suggest)} a month?</div><div class="actions" style="margin:0"><button class="primary" type="button" data-act="raise" data-id="${esc(h.id)}" data-amount="${h.suggest}">Raise to ${money(h.suggest)}</button><button class="secondary" type="button" data-act="hint-skip" data-id="${esc(h.id)}">Not now</button></div></div>`).join('');
  el('heroAmount').textContent=left<0?money(-left)+' over':money(left);el('heroAmount').className='heronum'+(left<0?' over':'');
  el('heroNote').textContent='this month, after your bills'+(billsLeft&&billsLeft.available<0?' (bills are '+money(-billsLeft.available)+' over their budget)':'');
  // buckets: the first four, plus any that are over; everything with one tap
@@ -545,6 +550,8 @@ document.addEventListener('click',async e=>{
   case 'add-expense':openExpense('expense');break;
   case 'add-refund':openExpense('refund');break;
   case 'view-cat':txFilter=b.dataset.id;tab='spending';render();break;
+  case 'hint-skip':lsSet('familyBudgetHintSkip',JSON.stringify({...hintSkips(),[b.dataset.id]:month}));render();break;
+  case 'raise':{const s=data.settings,id=b.dataset.id,amount=Number(b.dataset.amount),cats=s.categories.map(c=>c.id===id?{...c,limit:amount}:c),total=C.sum(cats,c=>c.limit);if(write([{op:'settings',data:{...s,categories:cats}}],catName(id)+' is now '+money(amount)+' a month.'+(total>s.income?' Your buckets now add up to '+money(total)+', more than your '+money(s.income)+' income: lower another bucket in Settings.':'')))render();break}
   case 'move-out':openMove('out');break;
   case 'move-in':openMove('in');break;
   case 'undo-move':{const id=b.dataset.id,v=data.moves[id];if(v&&await ask('Undo moving '+money(v.amount)+' from '+catName(v.from)+' to '+catName(v.to)+'?',{yes:'Undo'})){write([{op:'delete',coll:'moves',id}],'Move undone.');render()}break}
