@@ -25,7 +25,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 .bank-line{width:100%;background:transparent;border:0;padding:7px 0;text-align:left;color:inherit;display:flex;justify-content:space-between;align-items:baseline;gap:16px;font-size:14px;border-radius:6px}.bank-line:hover{background:#f1f5fa}.bank-line>span:first-child{min-width:0;overflow-wrap:anywhere}.bank-amount{white-space:nowrap;font-weight:500;font-variant-numeric:tabular-nums}
 .imp{width:100%;border-collapse:collapse;font-size:13px}.imp td,.imp th{padding:6px 4px;border-bottom:1px solid #edf0f5;text-align:left;vertical-align:middle}.imp select{min-height:34px;padding:5px;font-size:12px}.imp tr.flag{background:#fffaf0}.imp tr.off{opacity:.55}
 .monthrow{display:flex;align-items:center;justify-content:center;gap:8px;margin:4px 0 14px}.monthrow input{width:190px;text-align:center;font-weight:600;font-size:17px;border:0;background:transparent}.monthrow button{min-width:44px}
-.savingsnum{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}.savingsnum.over{color:#b12830}.hero{text-align:center}.heronum{font-size:38px;font-weight:700;margin:4px 0;font-variant-numeric:tabular-nums}
+.items{width:100%;border-collapse:collapse;font-size:14px}.items td{padding:6px 2px;border-bottom:1px solid #edf0f5;vertical-align:top}.savingsnum{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}.savingsnum.over{color:#b12830}.hero{text-align:center}.heronum{font-size:38px;font-weight:700;margin:4px 0;font-variant-numeric:tabular-nums}
 .bucket{display:block;width:100%;text-align:left;background:transparent;border:0;border-bottom:1px solid #edf0f5;padding:10px 2px;color:inherit;border-radius:0}.bucket:last-child{border-bottom:0}.bucket .row{align-items:baseline}.bucket .left{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}.bucket .of{font-weight:400;font-size:12px;color:#67758a}.over{color:#b12830}
 .waiting{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #edf0f5;font-size:14px}
 .shell{padding-bottom:150px}.bottombar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #e3e8ef;padding:10px 14px calc(8px + env(safe-area-inset-bottom));z-index:50}.bottombar>*{max-width:912px;margin-left:auto;margin-right:auto}.addbtn{display:block;width:100%;font-size:17px;padding:13px;font-weight:600}
@@ -75,6 +75,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
  <label for="expMethod">Paid with</label><select id="expMethod"></select>
  <label class="check" style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" id="expRefund"> Money back (a refund)</label>
  <div id="expStmtWrap" class="hidden"><label for="expStmt">Card bill it appears on (only if different)</label><input id="expStmt" type="month"></div>
+ <button class="secondary hidden" type="button" id="expReceipt" style="width:100%;margin-top:10px">🧾 Receipt & items</button>
  <div class="subtle" id="expInfo" style="margin-top:8px"></div><div class="err hidden" id="expErr" role="alert"></div>
  <div class="actions"><button class="primary" type="submit">Save</button><button class="secondary" type="button" data-close>Cancel</button><button class="secondary danger hidden" type="button" id="expDelete">Delete</button></div></form></dialog>
 
@@ -109,6 +110,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
  <label for="mvAmount">How much (₪)</label><input id="mvAmount" type="number" inputmode="decimal" step="any" min="0">
  <div class="err hidden" id="mvErr" role="alert"></div>
  <div class="actions"><button class="primary" type="submit">Move</button><button class="secondary" type="button" data-close>Cancel</button></div></form></dialog>
+<dialog id="dlgReceipt" class="wide"><div class="row"><div class="mhead" id="rcHead">Receipt</div><button class="secondary" type="button" data-close>Close</button></div><div id="rcBody"></div></dialog>
 <dialog id="dlgAsk"><div class="mhead" id="askHead">Are you sure?</div><p id="askText" style="white-space:pre-line"></p><div class="actions"><button class="primary" type="button" id="askYes">Yes</button><button class="secondary" type="button" id="askNo">Cancel</button></div></dialog>
 <dialog id="dlgImport" class="wide"><div class="mhead">Import card transactions</div><div id="impBody"></div></dialog>
 <input type="file" id="fileReceipt" accept="image/*" class="hidden">
@@ -116,7 +118,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 <input type="file" id="fileBackup" accept=".json,application/json" class="hidden">
 
 <!-- the ?v= number must change with APP below on every update, so phones never mix an old core.js with a new page -->
-<script src="core.js?v=3.6"></script>
+<script src="core.js?v=3.7"></script>
 <script>
 // The family's Firebase project. This is not a secret: the Firestore rules decide who can read the data.
 window.FAMILY_BUDGET_FIREBASE_CONFIG = {
@@ -130,7 +132,7 @@ window.FAMILY_BUDGET_FIREBASE_CONFIG = {
 </script>
 <script>
 (()=>{'use strict';
-const C=window.BudgetCore,APP='3.6',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
+const C=window.BudgetCore,APP='3.7',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
 const el=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=x=>(Number(x)<0?'−':'')+'₪'+Math.abs(Number(x||0)).toLocaleString('en-US',{maximumFractionDigits:2});
 const monthLabel=m=>C.isMonth(m)?new Date(m+'-02T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'}):'—';
@@ -175,6 +177,8 @@ class CloudStore{
  onAuth(fn){this.A.onAuthStateChanged(this.auth,fn)}
  async signIn(){const p=new this.A.GoogleAuthProvider();try{await this.A.signInWithPopup(this.auth,p)}catch(e){if(/popup-blocked|operation-not-supported|cancelled-popup/.test(e.code||''))await this.A.signInWithRedirect(this.auth,p);else throw e}}
  async signOut(){this.stop();await this.A.signOut(this.auth)}
+ // receipt photos are not part of the live data (too big): fetched one at a time when opened
+ async getReceipt(id){const s=await this.F.getDoc(this.F.doc(this.fs,...BASE,'receipts',id));return s.exists()?s.data():null}
  stop(){this.unsubs.forEach(u=>u());this.unsubs=[];this.data=emptyData();this.loaded={}}
  status(){return {ready:['settings',...COLLS].every(k=>this.loaded[k]),pending:Object.values(this.pending).some(Boolean),offline:this.fromCache&&!navigator.onLine}}
  subscribe(fn,onError){const F=this.F;this.stop();const emit=()=>fn(this.data,this.status());
@@ -325,14 +329,14 @@ function renderGate(){
 }
 
 // ---------------------------------------------------------------- expenses
-let editTx=null,expType='expense';
+let editTx=null,expType='expense',scanned=null;   // scanned: the last receipt read in the open dialog, saved with the purchase
 function openExpense(type='expense',tx=null){
  editTx=tx;expType=tx?tx.type:type;const s=data.settings;
  el('expHead').textContent=tx?(tx.virtual?tx.note+' — '+monthLabel(tx.billMonth):'Change this purchase'):'Add a purchase';el('expRefund').checked=expType==='refund';
  el('expAmount').value=tx?tx.amount:'';el('expCategory').innerHTML=catOptions(tx?.category||'groceries',tx?.category);
  el('expDate').value=tx?.date||(thisMonth()===month?today():month+'-01');el('expMethod').innerHTML=methodOptions(tx?.method||s.cards[0]?.id);
  el('expStmt').value=tx?.statementMonth||'';el('expNote').value=tx?.note||'';showErr('expErr','');
- el('expDelete').classList.toggle('hidden',!tx);el('expScanWrap').classList.toggle('hidden',!!tx);el('expScanInfo').textContent='';el('expScanWarn').textContent='';el('expDelete').textContent=tx?.virtual?'Skip this month':'Delete';
+ el('expDelete').classList.toggle('hidden',!tx);el('expScanWrap').classList.toggle('hidden',!!tx);el('expScanInfo').textContent='';el('expScanWarn').textContent='';scanned=null;el('expReceipt').classList.toggle('hidden',!(tx&&(tx.receipt||tx.items?.length)));el('expDelete').textContent=tx?.virtual?'Skip this month':'Delete';
  updateExpInfo();openDlg('dlgExpense');
 }
 // One plain sentence: which month's budget it counts in, and when the bank pays it.
@@ -347,21 +351,25 @@ function updateExpInfo(){const m=C.method(data.settings,el('expMethod').value),d
 // The Claude key is kept on this phone only (never in the shared budget, backups or code).
 const KEY_KEY='familyBudgetClaudeKey',SDK_URL='https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.134.0/+esm';
 const claudeKey=()=>(lsGet(KEY_KEY)||'').trim();
-// A phone photo shrunk to a size Claude reads well (long side 1568px), as base64 JPEG.
-async function receiptImage(file){const bmp=await createImageBitmap(file),k=Math.min(1,1568/Math.max(bmp.width,bmp.height)),c=document.createElement('canvas');
+// A phone photo shrunk to longSide pixels, as base64 JPEG: 1568px for Claude to read,
+// and a smaller copy to keep with the purchase (a database document holds at most ~1 MB).
+async function receiptImage(file,longSide=1568,quality=0.85){const bmp=await createImageBitmap(file),k=Math.min(1,longSide/Math.max(bmp.width,bmp.height)),c=document.createElement('canvas');
  c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
- const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',0.85));const buf=new Uint8Array(await blob.arrayBuffer());let s='';for(let i=0;i<buf.length;i+=0x8000)s+=String.fromCharCode(...buf.subarray(i,i+0x8000));return btoa(s)}
+ const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',quality));const buf=new Uint8Array(await blob.arrayBuffer());let s='';for(let i=0;i<buf.length;i+=0x8000)s+=String.fromCharCode(...buf.subarray(i,i+0x8000));return btoa(s)}
+async function keepableImage(file){for(const [side,q] of [[1400,0.7],[1100,0.6],[900,0.5]]){const b=await receiptImage(file,side,q);if(b.length<700000)return b}return null}
 async function readReceipt(file){
  const {default:Anthropic}=await import(SDK_URL),client=new Anthropic({apiKey:claudeKey(),dangerouslyAllowBrowser:true});
  const cats=data.settings.categories.filter(c=>c.id!==C.SAVINGS);
- const schema={type:'object',additionalProperties:false,required:['readable','store','total','date','category','card_last4'],properties:{
-  readable:{type:'boolean'},store:{type:'string'},total:{type:'number'},date:{type:'string'},category:{type:'string',enum:cats.map(c=>c.id)},card_last4:{type:'string'}}};
+ const schema={type:'object',additionalProperties:false,required:['readable','store','total','date','category','card_last4','items'],properties:{
+  readable:{type:'boolean'},store:{type:'string'},total:{type:'number'},date:{type:'string'},category:{type:'string',enum:cats.map(c=>c.id)},card_last4:{type:'string'},
+  items:{type:'array',items:{type:'object',additionalProperties:false,required:['name','kind','qty','price'],properties:{name:{type:'string'},kind:{type:'string'},qty:{type:'number'},price:{type:'number'}}}}}};
  const prompt=`This is a photo of a shop receipt from Israel (usually Hebrew, amounts in ₪). Read it for a family budget app.
 - store: the shop's name, short. Use the usual English name for a well-known chain (e.g. Shufersal, Rami Levy, Super-Pharm, Paz); otherwise as printed.
 - total: the final amount paid, in shekels (the line like סה"כ לתשלום / לתשלום / סה"כ), after discounts. A number, no currency sign.
 - date: the purchase date as YYYY-MM-DD (Israeli receipts print day/month/year). Empty string if you can't see it.
 - category: the best bucket for this purchase, one of: ${cats.map(c=>c.id+' ('+c.name+')').join(', ')}.
 - card_last4: the last 4 digits of the payment card if printed, else empty string.
+- items: every item line bought, in receipt order. name: as printed (Hebrew is fine). kind: a short, plain English word or two for what it is, the same for the same kind of product across shops (e.g. milk, bread, eggs, chicken, cigarettes, diapers, shampoo, fuel). qty: the quantity or weight (1 if not shown). price: the amount paid for that line in shekels, after its own discount. Leave out totals, VAT, payment and change lines. Put a general discount on the whole receipt as its own item with kind "discount" and a negative price.
 - readable: false if this is not a receipt or the total can't be read.`;
  const r=await client.beta.messages.create({model:'claude-opus-5-5',max_tokens:16000,betas:['server-side-fallback-2026-07-01'],fallbacks:'default',
   output_config:{effort:'low',format:{type:'json_schema',schema}},
@@ -379,8 +387,10 @@ const scanButtons=()=>document.querySelectorAll('[data-scan]');
 scanButtons().forEach(b=>b.onclick=()=>{if(!claudeKey()){showErr('expErr','To scan receipts, add your Claude key in Settings first.');return}const f=el('fileReceipt');if(b.dataset.scan==='camera')f.setAttribute('capture','environment');else f.removeAttribute('capture');f.click()});
 el('fileReceipt').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
  const info=el('expScanInfo'),busy=on=>scanButtons().forEach(b=>{b.disabled=on});el('expScanWarn').textContent='';showErr('expErr','');info.textContent='Reading the receipt… (a few seconds)';busy(true);let A=null;
- try{const x=await readReceipt(f);A=x.Anthropic;
+ try{const [x,image]=await Promise.all([readReceipt(f),keepableImage(f).catch(()=>null)]);A=x.Anthropic;
   if(!x.readable||!(x.total>0)){info.textContent='';showErr('expErr','Could not find the total on this photo. Try a sharper photo, or type it in.');return}
+  // kept until Save: the items go on the purchase, the photo into its own document
+  scanned={image,store:x.store||'',items:(x.items||[]).filter(i=>i&&i.name).map(i=>({name:String(i.name),kind:String(i.kind||'').toLowerCase().trim(),qty:Number(i.qty)||1,price:C.round2(i.price)}))};
   el('expAmount').value=C.round2(x.total);if(x.store)el('expNote').value=x.store;if(C.isDate(x.date))el('expDate').value=x.date;
   const learned=x.store?C.guessCategory(x.store,data.merchants,data.settings.categories):null,cat=learned?.source==='learned'?learned.category:x.category;
   if(data.settings.categories.some(c=>c.id===cat))el('expCategory').value=cat;
@@ -388,9 +398,18 @@ el('fileReceipt').onchange=async e=>{const f=e.target.files[0];e.target.value=''
   // a receipt from another month counts in that month's budget: say so before it is saved
   const d=C.isDate(x.date)?x.date:'',now=thisMonth(),warn=!d?'No date found on the receipt. Check the date below.':d>today()?'The date on the receipt ('+dayLabel(d)+') is in the future, so it was probably misread. Check the date below.':C.monthOf(d)<data.settings.startMonth?'This receipt is from '+dayLabel(d)+', before your budget started. It will not count in any bucket.':C.monthOf(d)!==now?'This receipt is from '+monthLabel(C.monthOf(d))+', so it counts in '+monthLabel(C.monthOf(d))+'’s budget, not '+monthLabel(now)+'’s. Is that right?':'';
   el('expScanWarn').textContent=warn?'⚠ '+warn:'';
-  updateExpInfo();info.textContent='Filled in from the receipt. Check it, then tap Save.'+(card||!/^\d{4}$/.test(x.card_last4)?'':' (Card ending '+x.card_last4+' is not in Settings.)')}
+  updateExpInfo();info.textContent='Filled in from the receipt'+(scanned.items.length?' ('+scanned.items.length+' items read)':'')+'. Check it, then tap Save.'+(card||!/^\d{4}$/.test(x.card_last4)?'':' (Card ending '+x.card_last4+' is not in Settings.)')}
  catch(err){info.textContent='';if(!A)try{A=(await import(SDK_URL)).default}catch{}showErr('expErr',scanError(err,A))}
  finally{busy(false)}};
+// ---- a saved receipt: its items, and the photo (loaded only now) -------------------
+el('expReceipt').onclick=async()=>{const t=editTx&&data.transactions[editTx.id];if(!t)return;const items=t.items||[];
+ el('rcHead').textContent=(t.note||'Receipt')+' · '+dayLabel(t.date)+' · '+money(t.amount);
+ el('rcBody').innerHTML=(items.length?`<table class="items"><tbody>${items.map(i=>`<tr><td>${esc(i.name)}<div class="subtle">${esc(i.kind||'')}${i.qty&&i.qty!==1?' · ×'+esc(i.qty):''}</div></td><td style="text-align:right;white-space:nowrap">${money(i.price)}</td></tr>`).join('')}</tbody></table><div class="subtle" style="margin:6px 0 12px">${items.length} items · together ${money(C.round2(C.sum(items,i=>i.price)))}</div>`:'<p class="subtle">No items were read from this receipt.</p>')+
+  (t.receipt?'<div id="rcPhoto" class="subtle">Loading the photo…</div>':'');
+ openDlg('dlgReceipt');
+ if(t.receipt){try{const r=store.getReceipt?await store.getReceipt(editTx.id):null,box=el('rcPhoto');if(!box)return;
+   if(r?.image){box.innerHTML='';const img=new Image();img.alt='Receipt photo';img.style.cssText='width:100%;border-radius:10px;border:1px solid #e3e8ef';img.src='data:image/jpeg;base64,'+r.image;box.appendChild(img)}else box.textContent='The photo is not available.'}
+  catch(e){const box=el('rcPhoto');if(box)box.textContent='The photo could not be loaded ('+errText(e)+').'}}};
 ['expMethod','expDate','expStmt','expCategory','expRefund'].forEach(id=>el(id).addEventListener('change',updateExpInfo));
 el('expDate').addEventListener('change',()=>{el('expScanWarn').textContent=''});   // the date was checked by hand
 el('formExpense').addEventListener('submit',e=>{e.preventDefault();
@@ -400,14 +419,18 @@ el('formExpense').addEventListener('submit',e=>{e.preventDefault();
  const t={...base,type:el('expRefund').checked?'refund':'expense',amount,date,category:cat,method,note:el('expNote').value.trim(),person:base.person||person(),updatedAt:new Date().toISOString()};
  if(C.method(data.settings,method)?.type==='card'&&C.isMonth(el('expStmt').value))t.statementMonth=el('expStmt').value;else delete t.statementMonth;
  if(editTx?.virtual){t.billId=editTx.billId;t.billMonth=editTx.billMonth}
+ // a scanned receipt: its items go on the purchase; the photo goes in its own document (cloud only), read only when opened
+ const keepPhoto=scanned?.image&&store.kind==='cloud'&&!editTx;
+ if(scanned&&!editTx){if(scanned.items.length)t.items=scanned.items;if(keepPhoto)t.receipt=true}
  const id=editTx&&!editTx.virtual?editTx.id:C.newId(),ops=[{op:'set',coll:'transactions',id,data:t}];
+ if(keepPhoto)ops.push({op:'set',coll:'receipts',id,data:{image:scanned.image,store:scanned.store,date,amount,savedAt:new Date().toISOString()}});
  // learn the category for this shop when you correct an imported purchase
  if(base.merchant&&base.category!==cat)ops.push({op:'set',coll:'merchants',id:C.safeId(C.normMerchant(base.merchant)),data:{category:cat}});
  if(write(ops,'Saved: '+money(amount)+' in '+catName(cat)+' ('+monthLabel(C.monthOf(date))+').')){closeDlg('dlgExpense');month=C.monthOf(date);render()}
 });
 el('expDelete').onclick=async()=>{if(!editTx)return;
  if(editTx.virtual){const b=data.bills[editTx.billId];if(!b||!await ask('Leave out '+b.name+' in '+monthLabel(editTx.billMonth)+' only? Other months stay the same.',{title:'Skip this month?',yes:'Skip this month'}))return;write([{op:'set',coll:'bills',id:b.id,data:{...b,skipped:[...new Set([...(b.skipped||[]),editTx.billMonth])]}}],b.name+' left out of '+monthLabel(editTx.billMonth)+'.')}
- else{if(!await ask('Delete '+(editTx.note||'this purchase')+' ('+money(editTx.amount)+')?'+(editTx.billId?' The bill goes back to its usual amount for that month.':''),{title:'Delete?',yes:'Delete'}))return;write([{op:'delete',coll:'transactions',id:editTx.id}],'Deleted.')}
+ else{if(!await ask('Delete '+(editTx.note||'this purchase')+' ('+money(editTx.amount)+')?'+(editTx.billId?' The bill goes back to its usual amount for that month.':''),{title:'Delete?',yes:'Delete'}))return;write([{op:'delete',coll:'transactions',id:editTx.id},...(editTx.receipt&&store.kind==='cloud'?[{op:'delete',coll:'receipts',id:editTx.id}]:[])],'Deleted.')}
  closeDlg('dlgExpense');render()};
 
 // ---------------------------------------------------------------- actual bill amounts
