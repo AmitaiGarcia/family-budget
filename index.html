@@ -112,7 +112,8 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 <input type="file" id="fileImport" accept=".csv,.xlsx,.xls,text/csv" class="hidden">
 <input type="file" id="fileBackup" accept=".json,application/json" class="hidden">
 
-<script src="core.js"></script>
+<!-- the ?v= number must change with APP below on every update, so phones never mix an old core.js with a new page -->
+<script src="core.js?v=3.1"></script>
 <script>
 // The family's Firebase project. This is not a secret: the Firestore rules decide who can read the data.
 window.FAMILY_BUDGET_FIREBASE_CONFIG = {
@@ -126,7 +127,7 @@ window.FAMILY_BUDGET_FIREBASE_CONFIG = {
 </script>
 <script>
 (()=>{'use strict';
-const C=window.BudgetCore,APP='3.0',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
+const C=window.BudgetCore,APP='3.1',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
 const el=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=x=>(Number(x)<0?'−':'')+'₪'+Math.abs(Number(x||0)).toLocaleString('en-US',{maximumFractionDigits:2});
 const monthLabel=m=>C.isMonth(m)?new Date(m+'-02T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'}):'—';
