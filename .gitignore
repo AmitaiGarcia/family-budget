@@ -1,0 +1,6 @@
+# Private — never upload
+SETUP.md
+firestore.rules
+private-setup.js
+tests.html
+*.json

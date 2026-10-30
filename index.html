@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#213d61">
+<title>Family Budget</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;color:#172235;background:#f5f7fb}*{box-sizing:border-box}body{margin:0}button,input,select,textarea{font:inherit}button{cursor:pointer}
+.shell{max-width:940px;margin:auto;padding:18px 14px 70px}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}h1{font-size:24px;margin:0}h2{font-size:18px;margin:0 0 12px}h3{font-size:15px;margin:16px 0 8px}small,.muted{color:#637083}
+.card{background:#fff;border:1px solid #e3e8ef;border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 2px 12px #26334808}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.stat strong{display:block;font-size:22px;margin-top:8px}
+.nav{display:flex;gap:6px;overflow:auto;margin:14px 0}.nav button{border:0;border-radius:20px;background:#e8edf4;color:#34465f;padding:10px 15px;white-space:nowrap}.nav button.active{background:#213d61;color:#fff}
+.primary{background:#245a88;color:#fff;border:0;border-radius:10px;padding:11px 15px}.secondary{background:#f0f4f8;color:#203b56;border:1px solid #d9e1ec;border-radius:10px;padding:10px 13px}.small{font-size:12px;padding:5px 9px;white-space:nowrap}.danger{color:#b12830}
+.subtle{font-size:12px;color:#67758a}.row{display:flex;justify-content:space-between;align-items:center;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+.category{padding:13px 0;border-bottom:1px solid #edf0f5}.category:last-child{border-bottom:0}.linkbtn{width:100%;text-align:left;background:transparent;border:0;padding:0;color:inherit;display:block;border-radius:8px}.linkbtn:hover{background:#f0f5fa}
+.bar{height:9px;background:#e8edf3;border-radius:12px;overflow:hidden;margin-top:8px}.fill{height:100%;background:#4e9a81}.fill.warning{background:#c78a42}.fill.over{background:#d46b6b}
+.tag{display:inline-block;font-size:11px;border-radius:12px;padding:3px 8px;background:#ecf1f6;color:#49607b;margin-left:5px}.tag.est{background:#fff4d7;color:#7a5a12}.tag.ok{background:#e1f5e9;color:#1d6b45}
+label{display:block;font-weight:600;font-size:13px;margin:13px 0 5px}input,select,textarea{width:100%;background:#fff;border:1px solid #c9d2df;border-radius:9px;padding:11px;min-height:42px}input[type=checkbox]{width:auto;min-height:auto}textarea{min-height:90px;font-family:ui-monospace,monospace;font-size:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.tx{display:flex;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid #eaf0f4}.tx:last-child{border-bottom:0}.tx strong{display:block}
+.hint{padding:12px;background:#edf5fc;border-radius:10px;color:#294a68;margin-bottom:15px;font-size:13px}.hidden{display:none!important}.amount{font-variant-numeric:tabular-nums;white-space:nowrap}.positive{color:#21805e}.negative{color:#b12830}.empty{padding:26px;text-align:center;color:#6c7889}
+dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);padding:22px;box-shadow:0 20px 70px #17223566;max-height:92vh}dialog.wide{max-width:820px}dialog::backdrop{background:#1b263a88}dialog:not([open]){display:none}.mhead{font-weight:700;font-size:18px;margin-bottom:12px}.err{color:#b42318;font-weight:600;margin:10px 0}
+.monthnav{display:flex;align-items:center;gap:6px}.monthnav input{width:150px}.monthnav button{min-width:40px}
+.app-banner{display:flex;gap:12px;align-items:center;justify-content:space-between;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:14px;font-weight:600}.app-banner.error{background:#fde8e8;border:1px solid #e3a1a1;color:#8a1c1c}.app-banner.warn{background:#fff4d7;border:1px solid #edce8a;color:#614b16}.app-banner.info{background:#e8f1fb;border:1px solid #a9c6e6;color:#1f4c7a}
+.notice{background:#e1f5e9;border:1px solid #79ad8d;border-radius:12px;padding:12px;margin-bottom:12px;font-weight:600}
+.sync{font-size:12px;border-radius:14px;padding:5px 10px;background:#ecf1f6;color:#49607b;white-space:nowrap}.sync.ok{background:#e1f5e9;color:#1d6b45}.sync.busy{background:#fff4d7;color:#7a5a12}.sync.bad{background:#fde8e8;color:#8a1c1c}
+.bank-clean-card{background:#fff;border:1px solid #e2e5e9;border-radius:18px;padding:18px 20px;margin:12px 0 16px}.bank-clean-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding-bottom:17px;border-bottom:1px solid #e8ebef;font-size:16px}.bank-clean-total{font-size:18px;white-space:nowrap}.bank-clean-lines{padding-top:12px}
+.bank-line{width:100%;background:transparent;border:0;padding:7px 0;text-align:left;color:inherit;display:flex;justify-content:space-between;align-items:baseline;gap:16px;font-size:14px;border-radius:6px}.bank-line:hover{background:#f1f5fa}.bank-line>span:first-child{min-width:0;overflow-wrap:anywhere}.bank-amount{white-space:nowrap;font-weight:500;font-variant-numeric:tabular-nums}
+.imp{width:100%;border-collapse:collapse;font-size:13px}.imp td,.imp th{padding:6px 4px;border-bottom:1px solid #edf0f5;text-align:left;vertical-align:middle}.imp select{min-height:34px;padding:5px;font-size:12px}.imp tr.flag{background:#fffaf0}.imp tr.off{opacity:.55}
+.setrow{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:end}.setrow label{margin-top:8px}
+@media(max-width:650px){.stats{grid-template-columns:1fr 1fr}.stat strong{font-size:18px}.stats .stat:last-child{grid-column:span 2}.grid2{grid-template-columns:1fr}h1{font-size:22px}.setrow{grid-template-columns:1fr 1fr}.imp .hide-sm{display:none}.monthbar{flex-direction:column;align-items:stretch}.monthnav input{flex:1;width:auto}.monthbar .actions>button{flex:1;white-space:nowrap}}
+</style></head><body><div class="shell">
+<header><div><h1>Family Budget</h1><span id="syncPill" class="sync">Starting…</span></div><button class="secondary" type="button" data-go="settings">⚙ Settings</button></header>
+<div id="banner" class="app-banner hidden" role="alert"></div>
+<div id="notice" class="notice hidden" role="status"></div>
+
+<!-- shown until data is available -->
+<section id="gate" class="card hidden"></section>
+
+<div id="main" class="hidden">
+ <div class="stats"><div class="card stat"><small>Monthly income plan</small><strong id="statIncome">—</strong></div><div class="card stat"><small>Left to spend this month</small><strong id="statLeft">—</strong></div><div class="card stat"><small>Protected car reserve</small><strong id="statReserve">—</strong><div class="subtle" id="statReserveNote"></div></div></div>
+ <div class="nav" id="tabs"><button data-tab="budget" class="active">Budget</button><button data-tab="transactions">Transactions</button><button data-tab="payments">Bank payments</button><button data-tab="bills">Bills</button></div>
+ <div class="card"><div class="row monthbar"><div class="monthnav"><button class="secondary" type="button" data-month-step="-1" aria-label="Previous month">‹</button><input type="month" id="monthPicker" aria-label="Month"><button class="secondary" type="button" data-month-step="1" aria-label="Next month">›</button></div><div class="actions" style="margin:0"><button class="primary" type="button" data-act="add-expense">+ Expense</button><button class="secondary" type="button" data-act="add-refund">+ Refund</button></div></div></div>
+
+ <section id="tab-budget" class="tab">
+  <div id="attention"></div>
+  <div class="card"><h2 id="budgetTitle">Budget</h2><p class="subtle">Purchases count in the month you buy, not when the card is collected. Fixed bills are added automatically; variable bills are only reserved until you enter the real amount.</p><div id="categoryList"></div></div>
+ </section>
+ <section id="tab-transactions" class="tab hidden"><div class="card">
+  <div class="row"><h2>Transactions</h2><button class="secondary" type="button" data-act="import">⬆ Import card file</button></div>
+  <div class="row" style="margin:6px 0 10px"><select id="txFilter" aria-label="Filter by category" style="max-width:280px"></select><span id="txTotal" class="subtle"></span></div>
+  <div id="txList"></div></div></section>
+ <section id="tab-payments" class="tab hidden"><div class="card"><h2>Bank payments</h2><div class="subtle">What each bank will pay out this month. Tap a card to see its purchases or enter the statement total.</div><div id="paymentSummary"></div><p class="subtle">Card amounts are estimates until you enter the statement total. Then the statement wins.</p></div></section>
+ <section id="tab-bills" class="tab hidden"><div class="card"><div class="row"><div><h2>Bills</h2><div class="subtle">Set a bill once and it appears every month. Variable bills (electricity, water…) are reserved until you enter the real amount.</div></div><button class="primary" type="button" data-act="add-bill">+ Bill</button></div><div id="billList"></div></div></section>
+ <section id="tab-settings" class="tab hidden"></section>
+</div>
+</div>
+
+<!-- ============ dialogs ============ -->
+<dialog id="dlgExpense"><form id="formExpense" novalidate><div class="mhead" id="expHead">Add expense</div>
+ <label for="expAmount">Amount (₪)</label><input id="expAmount" type="number" inputmode="decimal" step="any" min="0">
+ <div class="grid2"><div><label for="expCategory">Category</label><select id="expCategory"></select></div><div><label for="expDate">Date</label><input id="expDate" type="date"></div></div>
+ <div class="grid2"><div><label for="expMethod">Paid with</label><select id="expMethod"></select></div><div id="expStmtWrap"><label for="expStmt">Card collection month</label><input id="expStmt" type="month"></div></div>
+ <label for="expNote">Description</label><input id="expNote" placeholder="e.g. Yochananof">
+ <div class="subtle" id="expInfo" style="margin-top:8px"></div><div class="err hidden" id="expErr" role="alert"></div>
+ <div class="actions"><button class="primary" type="submit">Save</button><button class="secondary" type="button" data-close>Cancel</button><button class="secondary danger hidden" type="button" id="expDelete">Delete</button></div></form></dialog>
+
+<dialog id="dlgActual"><form id="formActual" novalidate><div class="mhead" id="actHead">Enter actual bill</div><p class="subtle" id="actInfo"></p>
+ <label for="actAmount">Actual amount (₪)</label><input id="actAmount" type="number" inputmode="decimal" step="any" min="0">
+ <div class="grid2"><div><label for="actDate">Payment date</label><input id="actDate" type="date"></div><div><label for="actMethod">Paid with</label><select id="actMethod"></select></div></div>
+ <div class="err hidden" id="actErr" role="alert"></div>
+ <div class="actions"><button class="primary" type="submit">Save actual bill</button><button class="secondary" type="button" data-close>Cancel</button></div></form></dialog>
+
+<dialog id="dlgBill"><form id="formBill" novalidate><div class="mhead" id="billHead">Bill</div>
+ <label for="billName">Name</label><input id="billName" placeholder="e.g. Internet">
+ <div class="grid2"><div><label for="billKind">Amount type</label><select id="billKind"><option value="fixed">Fixed — same every time</option><option value="variable">Variable — reserve an estimate</option></select></div><div><label for="billAmount">Amount (₪)</label><input id="billAmount" type="number" inputmode="decimal" step="any" min="0"></div></div>
+ <div class="grid2"><div><label for="billEvery">Repeats</label><select id="billEvery"><option value="1">Every month</option><option value="2">Every 2 months</option><option value="3">Every 3 months</option><option value="6">Every 6 months</option><option value="12">Every year</option><option value="0">Once only</option></select></div><div><label for="billDay">Day of month</label><input id="billDay" type="number" min="1" max="31" step="1"></div></div>
+ <div class="grid2"><div><label for="billStart">First month</label><input id="billStart" type="month"></div><div><label for="billEnd">Last month (optional)</label><input id="billEnd" type="month"></div></div>
+ <div class="grid2"><div><label for="billCategory">Budget category</label><select id="billCategory"></select></div><div><label for="billMethod">Paid with</label><select id="billMethod"></select></div></div>
+ <div id="billFromWrap" class="hidden"><label for="billFrom">Changes to amount, day, card or category apply from</label><input id="billFrom" type="month"><div class="subtle">Earlier months keep the old values.</div></div>
+ <div class="err hidden" id="billErr" role="alert"></div>
+ <div class="actions"><button class="primary" type="submit">Save bill</button><button class="secondary" type="button" data-close>Cancel</button><button class="secondary danger hidden" type="button" id="billDelete">Delete bill</button></div></form></dialog>
+
+<dialog id="dlgCard"><div class="row"><div class="mhead" id="cardHead">Card</div><button class="secondary" type="button" data-close>Close</button></div><div id="cardBody"></div></dialog>
+
+<dialog id="dlgStatement"><form id="formStatement" novalidate><div class="mhead" id="stHead">Statement total</div><p class="subtle" id="stInfo"></p>
+ <label for="stAmount">Total the bank will collect (₪)</label><input id="stAmount" type="number" inputmode="decimal" step="any" min="0">
+ <label for="stStatus">This amount is</label><select id="stStatus"><option value="final">The final statement total</option><option value="partial">Only what is known so far</option></select>
+ <div id="stAsOfWrap" class="hidden"><label for="stAsOf">Known as of</label><input id="stAsOf" type="date"><div class="subtle">Purchases dated after this are added on top.</div></div>
+ <div class="err hidden" id="stErr" role="alert"></div>
+ <div class="actions"><button class="primary" type="submit">Save</button><button class="secondary" type="button" data-close>Cancel</button><button class="secondary danger hidden" type="button" id="stDelete">Remove statement</button></div></form></dialog>
+
+<dialog id="dlgImport" class="wide"><div class="mhead">Import card transactions</div><div id="impBody"></div></dialog>
+<input type="file" id="fileImport" accept=".csv,.xlsx,.xls,text/csv" class="hidden">
+<input type="file" id="fileBackup" accept=".json,application/json" class="hidden">
+
+<script src="core.js"></script>
+<script>
+// The family's Firebase project. This is not a secret: the Firestore rules decide who can read the data.
+window.FAMILY_BUDGET_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDR7ytDDo-ewWp5MycN3wJ4m6WuV_nTjx4",
+  authDomain: "family-budget-f9932.firebaseapp.com",
+  projectId: "family-budget-f9932",
+  storageBucket: "family-budget-f9932.firebasestorage.app",
+  messagingSenderId: "687938862317",
+  appId: "1:687938862317:web:019875b8810022134ba0e4"
+};
+</script>
+<script>
+(()=>{'use strict';
+const C=window.BudgetCore,APP='3.0',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
+const el=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=x=>(Number(x)<0?'−':'')+'₪'+Math.abs(Number(x||0)).toLocaleString('en-US',{maximumFractionDigits:2});
+const monthLabel=m=>C.isMonth(m)?new Date(m+'-02T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'}):'—';
+const dayLabel=d=>C.isDate(d)?new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}):d;
+const today=()=>C.todayStr(),thisMonth=()=>today().slice(0,7);
+const lsGet=k=>{try{return localStorage.getItem(k)}catch{return null}},lsSet=(k,v)=>{try{localStorage.setItem(k,v);return true}catch{return false}};
+
+// ---------------------------------------------------------------- messages
+function banner(msg,kind='error'){const b=el('banner');b.className='app-banner '+kind;b.innerHTML='<span>'+esc(msg)+'</span><button type="button" class="secondary small" data-act="dismiss">Dismiss</button>'}
+let noticeTimer;function flash(msg){const n=el('notice');n.textContent=msg;n.classList.remove('hidden');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>n.classList.add('hidden'),6000)}
+window.addEventListener('error',e=>banner('Something went wrong: '+(e.message||'unknown error')+'. Check whether your last change appears.'));
+window.addEventListener('unhandledrejection',e=>banner('Something went wrong: '+(e.reason?.message||e.reason||'unknown error')));
+const errText=e=>e?.code==='permission-denied'?'this Google account is not allowed to use the budget (check the email addresses in the Firebase rules)':(e?.message||String(e));
+const openDlg=id=>{const d=el(id);if(d.open)d.close();d.showModal()},closeDlg=id=>{const d=el(id);if(d.open)d.close()};
+const showErr=(id,msg)=>{const n=el(id);n.textContent=msg;n.classList.toggle('hidden',!msg)};
+
+// ---------------------------------------------------------------- storage
+// Both stores take the same list of operations, so the rest of the app does not
+// care where data lives. Each record is its own document, so two phones editing
+// different things never overwrite each other.
+const emptyData=()=>({settings:null,bills:{},transactions:{},statements:{},merchants:{}});
+function applyOp(d,op){if(op.op==='settings')d.settings=op.data;else if(op.op==='set')d[op.coll][op.id]=op.data;else if(op.op==='delete')delete d[op.coll][op.id];else if(op.op==='legacy')d.legacy=op.json}
+class LocalStore{
+ constructor(){this.kind='local';this.fns=[];window.addEventListener('storage',e=>{if(e.key===LOCAL_KEY)this.emit()})}
+ read(){const raw=lsGet(LOCAL_KEY);if(!raw)return emptyData();try{return {...emptyData(),...JSON.parse(raw)}}catch{return emptyData()}}
+ subscribe(fn){this.fns.push(fn);setTimeout(()=>this.emit(),0)}
+ emit(){const d=this.read();this.fns.forEach(f=>f(d,{ready:true,pending:false,offline:false}))}
+ apply(ops){const d=this.read();ops.forEach(op=>applyOp(d,op));const json=JSON.stringify(d);localStorage.setItem(LOCAL_KEY,json);if(localStorage.getItem(LOCAL_KEY)!==json)throw Error('the browser did not keep the data');this.emit()}
+}
+const FBV='10.12.2',FB=n=>`https://www.gstatic.com/firebasejs/${FBV}/firebase-${n}.js`,BASE=['households','family'],COLLS=['bills','transactions','statements','merchants'];
+const clean=x=>JSON.parse(JSON.stringify(x));
+class CloudStore{
+ constructor(config){this.kind='cloud';this.config=config;this.data=emptyData();this.unsubs=[];this.loaded={};this.pending={};this.fromCache=true}
+ async init(){const [a,au,f]=await Promise.all([import(FB('app')),import(FB('auth')),import(FB('firestore'))]);this.A=au;this.F=f;this.app=a.initializeApp(this.config);this.auth=au.getAuth(this.app);try{this.fs=f.initializeFirestore(this.app,{localCache:f.persistentLocalCache({tabManager:f.persistentMultipleTabManager()})})}catch{this.fs=f.getFirestore(this.app)}try{await au.getRedirectResult(this.auth)}catch(e){banner('Sign-in failed: '+errText(e))}}
+ onAuth(fn){this.A.onAuthStateChanged(this.auth,fn)}
+ async signIn(){const p=new this.A.GoogleAuthProvider();try{await this.A.signInWithPopup(this.auth,p)}catch(e){if(/popup-blocked|operation-not-supported|cancelled-popup/.test(e.code||''))await this.A.signInWithRedirect(this.auth,p);else throw e}}
+ async signOut(){this.stop();await this.A.signOut(this.auth)}
+ stop(){this.unsubs.forEach(u=>u());this.unsubs=[];this.data=emptyData();this.loaded={}}
+ status(){return {ready:['settings',...COLLS].every(k=>this.loaded[k]),pending:Object.values(this.pending).some(Boolean),offline:this.fromCache&&!navigator.onLine}}
+ subscribe(fn,onError){const F=this.F;this.stop();const emit=()=>fn(this.data,this.status());
+  this.unsubs.push(F.onSnapshot(F.doc(this.fs,...BASE,'meta','settings'),{includeMetadataChanges:true},s=>{this.data.settings=s.exists()?s.data():null;this.pending.settings=s.metadata.hasPendingWrites;this.fromCache=s.metadata.fromCache;this.loaded.settings=true;emit()},onError));
+  for(const c of COLLS)this.unsubs.push(F.onSnapshot(F.collection(this.fs,...BASE,c),{includeMetadataChanges:true},s=>{const o={};s.forEach(d=>{o[d.id]=d.data()});this.data[c]=o;this.pending[c]=s.metadata.hasPendingWrites;this.fromCache=s.metadata.fromCache;this.loaded[c]=true;emit()},onError));
+ }
+ apply(ops){const F=this.F,commits=[];let batch=F.writeBatch(this.fs),n=0;
+  for(const op of ops){
+   if(op.op==='settings')batch.set(F.doc(this.fs,...BASE,'meta','settings'),clean(op.data));
+   else if(op.op==='legacy')batch.set(F.doc(this.fs,...BASE,'meta','legacy'),{json:op.json,savedAt:new Date().toISOString()});
+   else if(op.op==='set')batch.set(F.doc(this.fs,...BASE,op.coll,op.id),clean(op.data));
+   else if(op.op==='delete')batch.delete(F.doc(this.fs,...BASE,op.coll,op.id));
+   if(++n>=450){commits.push(batch.commit());batch=F.writeBatch(this.fs);n=0}}
+  if(n)commits.push(batch.commit());return Promise.all(commits)}
+}
+
+// ---------------------------------------------------------------- app state
+let store=null,data=null,status={ready:false},user=null,month=thisMonth(),monthChosen=false,tab='budget',txFilter='';
+const db=()=>data;   // current data, already normalised
+function normalise(d){
+ if(!d||!d.settings)return null;
+ const s={...C.defaultSettings(),...d.settings};s.categories=(s.categories||[]).map(c=>({opening:0,...c}));s.accounts={...C.defaultSettings().accounts,...(s.accounts||{})};
+ const bills={};for(const [id,b] of Object.entries(d.bills||{}))bills[id]={pauses:[],skipped:[],changes:[],every:1,kind:'fixed',...b,id};
+ return {settings:s,bills,transactions:d.transactions||{},statements:d.statements||{},merchants:d.merchants||{}};
+}
+// One way to save. Local: stored and read back before we say "saved".
+// Cloud: shown at once from the phone's own copy, then confirmed by Google.
+function write(ops,okMsg){
+ try{const p=store.apply(ops);if(p&&p.catch)p.catch(e=>banner('A change could not be saved to the cloud: '+errText(e)+'. It has been undone.'));if(okMsg)flash(okMsg+(store.kind==='cloud'&&!navigator.onLine?' Saved on this phone; it will sync when you are back online.':''));return true}
+ catch(e){banner('Not saved: the browser refused to store data ('+errText(e)+'). Nothing was changed. Open the app in a normal browser tab (not a preview or private window), or connect cloud sync.');return false}
+}
+const person=()=>user?.displayName?.split(' ')[0]||lsGet('familyBudgetPerson')||'Me';
+const catName=id=>data.settings.categories.find(c=>c.id===id)?.name||id||'—';
+const methodName=id=>C.method(data.settings,id)?.name||id||'—';
+const catOptions=(sel,extra)=>{const cs=data.settings.categories.filter(c=>c.id!=='savings'||c.id===extra);return cs.map(c=>`<option value="${esc(c.id)}"${c.id===sel?' selected':''}>${esc(c.name)}</option>`).join('')+(extra&&!cs.some(c=>c.id===extra)?`<option value="${esc(extra)}" selected>${esc(extra)}</option>`:'')};
+const methodOptions=sel=>C.methods(data.settings).map(m=>`<option value="${esc(m.id)}"${m.id===sel?' selected':''}>${esc(m.name)}</option>`).join('')+(sel&&!C.method(data.settings,sel)?`<option value="${esc(sel)}" selected>${esc(sel)}</option>`:'');
+const clampMonth=m=>m<data.settings.startMonth?data.settings.startMonth:m;
+
+// ---------------------------------------------------------------- rendering
+const sections=[];let renderErrors=[];
+const part=(name,fn)=>{try{fn()}catch(e){renderErrors.push(name);console.error(name,e)}};
+function render(){
+ renderSync();
+ if(!store)return;
+ if(!data){renderGate();return}
+ el('gate').classList.add('hidden');el('main').classList.remove('hidden');
+ if(!monthChosen){month=clampMonth(thisMonth());monthChosen=true}   // open on the first tracked month, not an empty earlier one
+ renderErrors=[];
+ part('summary',renderSummary);
+ if(tab==='budget')part('budget',renderBudget);
+ if(tab==='transactions')part('transactions',renderTransactions);
+ if(tab==='payments')part('bank payments',renderPayments);
+ if(tab==='bills')part('bills',renderBills);
+ // never redraw the settings form under someone's fingers (e.g. when the other phone syncs)
+ if(tab==='settings'&&!(el('tab-settings').innerHTML&&el('tab-settings').contains(document.activeElement)&&document.activeElement.matches('input,select,textarea')))part('settings',renderSettings);
+ document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('hidden',t.id!=='tab-'+tab));
+ document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+ if(renderErrors.length)banner('Part of the screen could not be shown ('+renderErrors.join(', ')+'). Your data is unchanged — please download a backup and report this.');
+}
+function renderSync(){const p=el('syncPill');let t='',k='';
+ if(!store){t='Starting…'}else if(store.kind==='local'){t='Saved on this device only';k=''}
+ else if(!user){t='Not signed in';k='bad'}else if(!status.ready){t='Loading…';k='busy'}else if(status.offline){t=status.pending?'Offline · will sync':'Offline';k='busy'}else if(status.pending){t='Saving…';k='busy'}else{t='Synced ✓';k='ok'}
+ p.textContent=t;p.className='sync '+k}
+function renderSummary(){const s=data.settings,b=C.budget(data,month);el('monthPicker').value=month;el('statIncome').textContent=money(s.income);el('statLeft').textContent=money(b.left);el('statLeft').className=b.left<0?'negative':'';el('statReserve').textContent=money(s.accounts.carReserve);el('statReserveNote').textContent='Car balloon '+(C.isMonth(s.accounts.carReserveDue)?monthLabel(s.accounts.carReserveDue):'')+' · not spendable'}
+function renderBudget(){
+ el('budgetTitle').textContent='Budget · '+monthLabel(month);
+ const b=C.budget(data,month);
+ el('categoryList').innerHTML=b.cats.map(c=>{const lim=Number(c.limit)||0,used=lim>0?Math.max(0,Math.min(100,(c.spent+c.reserved)/lim*100)):0,k=c.spent>lim?'over':c.spent+c.reserved>lim*.9?'warning':'';return `<div class="category"><button type="button" class="linkbtn" data-act="view-cat" data-id="${esc(c.id)}"><div class="row"><div><b>${esc(c.name)}</b>${c.rollover?'<span class="tag">Rolls over</span>':''}<div class="subtle">${money(c.spent)} spent${c.reserved?' + '+money(c.reserved)+' reserved':''} of ${money(lim)}</div></div><div style="text-align:right"><b class="amount ${c.available<0?'negative':''}">${money(c.available)}</b><div class="subtle">left</div></div></div><div class="bar"><div class="fill ${k}" style="width:${used}%"></div></div></button></div>`}).join('');
+ const waiting=C.occurrences(data,month).filter(o=>o.estimate);
+ el('attention').innerHTML=waiting.length?`<div class="card"><h2>Waiting for real amounts</h2><div class="subtle">These are reserved as estimates. Enter the real bill when it arrives — the estimate is replaced, never added twice.</div>${waiting.map(o=>`<div class="tx"><div><strong>${esc(o.note)}</strong><span class="subtle">${dayLabel(o.date)} · estimate ${money(o.amount)} · ${esc(methodName(o.method))}</span></div><button class="secondary small" type="button" data-act="actual" data-bill="${esc(o.billId)}" data-month="${esc(month)}">Enter actual</button></div>`).join('')}</div>`:'';
+}
+function txRow(t){const est=t.estimate,link=t.billId&&!t.virtual;return `<div class="tx"><div><strong>${esc(t.note||catName(t.category))}</strong><span class="subtle">${esc(t.date)} · ${esc(catName(t.category))} · ${esc(methodName(t.method))}${t.person?' · '+esc(t.person):''}</span>${t.virtual&&!est?'<span class="tag">Automatic bill</span>':''}${est?'<span class="tag est">Estimate</span>':''}${link?'<span class="tag ok">Bill paid</span>':''}</div><div style="text-align:right"><strong class="amount ${t.type==='refund'?'positive':est?'muted':''}">${t.type==='refund'?'+':''}${money(t.amount)}</strong><div class="actions" style="margin-top:4px;justify-content:flex-end">${est?`<button class="secondary small" type="button" data-act="actual" data-bill="${esc(t.billId)}" data-month="${esc(t.billMonth)}">Enter actual</button>`:`<button class="secondary small" type="button" data-act="edit-tx" data-id="${esc(t.id)}">Edit</button>`}</div></div></div>`}
+function renderTransactions(){
+ const f=el('txFilter');f.innerHTML='<option value="">All categories</option>'+data.settings.categories.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');f.value=txFilter;
+ const items=C.itemsForMonth(data,month).filter(t=>!txFilter||t.category===txFilter).sort((a,b)=>b.date.localeCompare(a.date));
+ const net=C.sum(items.filter(t=>!t.estimate),C.signed),est=C.sum(items.filter(t=>t.estimate),t=>t.amount);
+ el('txTotal').textContent=items.length+' items · spent '+money(net)+(est?' · reserved '+money(est):'');
+ el('txList').innerHTML=items.length?items.map(txRow).join(''):'<div class="empty">Nothing recorded for '+esc(monthLabel(month))+' yet.</div>';
+}
+function renderPayments(){
+ el('paymentSummary').innerHTML=C.bankPayments(data,month).map(b=>`<section class="bank-clean-card" aria-label="${esc(b.bank)} payments"><div class="bank-clean-head"><strong>${esc(b.bank)}</strong><strong class="bank-clean-total">${money(b.total)}</strong></div><div class="bank-clean-lines">${b.lines.length?b.lines.map(l=>l.kind==='card'?`<button type="button" class="bank-line" data-act="card" data-card="${esc(l.collection.cardId)}"><span>${esc(l.name)} · ${dayLabel(l.date)}${l.collection.basis==='statement'?' <span class="tag ok">statement</span>':''}</span><span class="bank-amount">${money(l.amount)}</span></button>`:`<button type="button" class="bank-line" data-act="${l.item.estimate?'actual':'edit-tx'}" data-id="${esc(l.item.id)}" data-bill="${esc(l.item.billId||'')}" data-month="${esc(l.item.billMonth||'')}"><span>${esc(l.name)}${l.estimate?' <span class="tag est">estimate</span>':''}</span><span class="bank-amount">${money(l.amount)}</span></button>`).join(''):'<p class="subtle">No payments expected.</p>'}</div></section>`).join('');
+}
+function scheduleText(b){const e=Number(b.every);const v=C.billValues(b,clampMonth(month));return (e===0?'Once, '+monthLabel(b.start):e===1?'Monthly':e===12?'Yearly':'Every '+e+' months')+' · day '+v.day+' · '+methodName(v.method)+(b.end&&e!==0?' · until '+monthLabel(b.end):'')}
+function renderBills(){
+ const all=Object.values(data.bills).sort((a,b)=>a.name.localeCompare(b.name)),m=month;
+ const group=(title,list)=>list.length?`<h3>${title}</h3>`+list.map(b=>{const v=C.billValues(b,m),occurs=C.billOccursIn(b,m),actual=C.billActual(data,b.id,m),paused=(b.pauses||[]).some(p=>p.from<=m&&(!p.to||m<=p.to));let st='';
+  if(paused)st='<span class="tag">Paused</span>';else if(!occurs)st='<span class="subtle">Not due in '+esc(monthLabel(m))+'</span>';else if(actual)st=`<span class="tag ok">Paid ${money(actual.amount)}</span>`;else if(b.kind==='variable')st=`<span class="tag est">Estimate ${money(v.amount)}</span> <button class="secondary small" type="button" data-act="actual" data-bill="${esc(b.id)}" data-month="${esc(m)}">Enter actual</button>`;else st='<span class="tag">Automatic</span>';
+  return `<div class="tx"><div><strong>${esc(b.name)}</strong><span class="subtle">${money(v.amount)} · ${esc(scheduleText(b))}</span><div style="margin-top:4px">${st}</div></div><div style="text-align:right"><div class="actions" style="margin-top:0;justify-content:flex-end"><button class="secondary small" type="button" data-act="edit-bill" data-id="${esc(b.id)}">Edit</button>${Number(b.every)!==0?`<button class="secondary small" type="button" data-act="pause-bill" data-id="${esc(b.id)}">${paused?'Resume':'Pause'}</button>`:''}</div></div></div>`}).join(''):'';
+ el('billList').innerHTML=(group('Fixed',all.filter(b=>b.kind!=='variable'&&Number(b.every)!==0))+group('Variable',all.filter(b=>b.kind==='variable'&&Number(b.every)!==0))+group('One-off',all.filter(b=>Number(b.every)===0)))||'<div class="empty">No bills yet.</div>';
+}
+
+// ---------------------------------------------------------------- first run / sign in
+function renderGate(){
+ el('main').classList.add('hidden');const g=el('gate');g.classList.remove('hidden');
+ if(store.kind==='cloud'&&!user){g.innerHTML=`<h2>Sign in</h2><p>Your family budget is stored in your private Firebase database. Sign in with the Google account that is allowed to use it.</p><div class="actions"><button class="primary" type="button" data-act="signin">Sign in with Google</button>${window.FAMILY_BUDGET_FIREBASE_CONFIG?'':'<button class="secondary" type="button" data-act="use-local">Use on this device only instead</button>'}</div>`;return}
+ if(store.kind==='cloud'&&status.error){g.innerHTML=`<h2>Can’t open the shared budget</h2><p>${esc(status.error)}</p><p class="subtle">Signed in as ${esc(user?.email||'')}.</p><div class="actions"><button class="secondary" type="button" data-act="signout">Sign in with a different account</button></div>`;return}
+ if(store.kind==='cloud'&&!status.ready){g.innerHTML='<p>Loading your budget…</p>';return}
+ const hasLocal=store.kind==='cloud'&&!!normalise(new LocalStore().read()),hasOld=!!lsGet(OLD_KEY);
+ g.innerHTML=`<h2>Set up your budget</h2><p>${store.kind==='cloud'?'The shared budget is empty. Choose how to start — this is done once, and both phones will see the result.':'Choose how to start.'}</p>
+ <div class="actions" style="flex-direction:column;align-items:stretch">
+ <button class="primary" type="button" data-act="restore">Import your start file or a backup</button>
+ ${hasOld?'<button class="secondary" type="button" data-act="import-old">Bring in the data saved by the old app in this browser</button>':''}
+ ${hasLocal?'<button class="secondary" type="button" data-act="copy-local">Copy this device’s budget to the cloud</button>':''}
+ <button class="secondary" type="button" data-act="fresh">Start with an example setup (change it in Settings)</button></div>`;
+}
+
+// ---------------------------------------------------------------- expenses
+let editTx=null,expType='expense';
+function openExpense(type='expense',tx=null){
+ editTx=tx;expType=tx?tx.type:type;const s=data.settings;
+ el('expHead').textContent=tx?(tx.virtual?'Edit this month’s '+tx.note:'Edit transaction'):type==='refund'?'Record a refund':'Add expense';
+ el('expAmount').value=tx?tx.amount:'';el('expCategory').innerHTML=catOptions(tx?.category||'groceries',tx?.category);
+ el('expDate').value=tx?.date||(thisMonth()===month?today():month+'-01');el('expMethod').innerHTML=methodOptions(tx?.method||s.cards[0]?.id);
+ el('expStmt').value=tx?.statementMonth||'';el('expNote').value=tx?.note||'';showErr('expErr','');
+ el('expDelete').classList.toggle('hidden',!tx);el('expDelete').textContent=tx?.virtual?'Skip this month':'Delete';
+ updateExpInfo();openDlg('dlgExpense');
+}
+function updateExpInfo(){const m=C.method(data.settings,el('expMethod').value),d=el('expDate').value;el('expStmtWrap').classList.toggle('hidden',m?.type!=='card');
+ let t=expType==='refund'?'Record a refund only once the money has arrived. It goes back into the category.':'Counts in the month of the purchase. A card collection later is not a second expense.';
+ if(m?.type==='card'&&C.isDate(d)){const due=C.isMonth(el('expStmt').value)?el('expStmt').value:C.collectionMonth(d,m);t+=' Expected on the '+m.name+' collection of '+dayLabel(C.collectionDate(due,m))+(el('expStmt').value?' (chosen by you).':' (estimated: on or after day '+m.day+' moves to the next month).')}
+ el('expInfo').textContent=t}
+['expMethod','expDate','expStmt'].forEach(id=>el(id).addEventListener('change',updateExpInfo));
+el('formExpense').addEventListener('submit',e=>{e.preventDefault();
+ const amount=C.round2(el('expAmount').value),date=el('expDate').value,cat=el('expCategory').value,method=el('expMethod').value;
+ if(!(amount>0))return showErr('expErr','Enter an amount above zero.');if(!C.isDate(date))return showErr('expErr','Choose a date.');if(!cat)return showErr('expErr','Choose a category.');
+ const base=editTx&&!editTx.virtual?data.transactions[editTx.id]||{}:{};
+ const t={...base,type:expType,amount,date,category:cat,method,note:el('expNote').value.trim(),person:base.person||person(),updatedAt:new Date().toISOString()};
+ if(C.method(data.settings,method)?.type==='card'&&C.isMonth(el('expStmt').value))t.statementMonth=el('expStmt').value;else delete t.statementMonth;
+ if(editTx?.virtual){t.billId=editTx.billId;t.billMonth=editTx.billMonth}
+ const id=editTx&&!editTx.virtual?editTx.id:C.newId(),ops=[{op:'set',coll:'transactions',id,data:t}];
+ // learn the category for this shop when you correct an imported purchase
+ if(base.merchant&&base.category!==cat)ops.push({op:'set',coll:'merchants',id:C.safeId(C.normMerchant(base.merchant)),data:{category:cat}});
+ if(write(ops,(editTx?'Updated: ':'Saved: ')+money(amount)+' · '+catName(cat)+' · '+monthLabel(C.monthOf(date))+'.')){closeDlg('dlgExpense');month=C.monthOf(date);render()}
+});
+el('expDelete').onclick=()=>{if(!editTx)return;
+ if(editTx.virtual){const b=data.bills[editTx.billId];if(!b||!confirm('Skip '+b.name+' for '+monthLabel(editTx.billMonth)+'? Other months are not affected.'))return;write([{op:'set',coll:'bills',id:b.id,data:{...b,skipped:[...new Set([...(b.skipped||[]),editTx.billMonth])]}}],b.name+' skipped for '+monthLabel(editTx.billMonth)+'.')}
+ else{if(!confirm('Delete '+(editTx.note||'this transaction')+' ('+money(editTx.amount)+')?'+(editTx.billId?' The bill goes back to its automatic amount or estimate for that month.':'')))return;write([{op:'delete',coll:'transactions',id:editTx.id}],'Transaction deleted.')}
+ closeDlg('dlgExpense');render()};
+
+// ---------------------------------------------------------------- actual bill amounts
+let actCtx=null;
+function openActual(billId,m){const b=data.bills[billId];if(!b)return banner('That bill no longer exists.','warn');const v=C.billValues(b,m),existing=C.billActual(data,billId,m);actCtx={b,m,existing};
+ el('actHead').textContent=b.name+' — '+monthLabel(m);el('actInfo').textContent='Estimate '+money(v.amount)+'. The real amount replaces the estimate; it is not added on top.';
+ el('actAmount').value=existing?existing.amount:'';el('actDate').value=existing?.date||C.dateIn(m,v.day);el('actMethod').innerHTML=methodOptions(existing?.method||v.method);showErr('actErr','');openDlg('dlgActual')}
+el('formActual').addEventListener('submit',e=>{e.preventDefault();if(!actCtx)return;const {b,m,existing}=actCtx,amount=C.round2(el('actAmount').value),date=el('actDate').value;
+ if(!(amount>0))return showErr('actErr','Enter the amount on the bill.');if(!C.isDate(date))return showErr('actErr','Choose the payment date.');
+ const v=C.billValues(b,m),id=existing?.id||C.safeId('bill-'+b.id+'-'+m);
+ if(write([{op:'set',coll:'transactions',id,data:{...(existing?data.transactions[existing.id]:{}),type:'expense',amount,date,category:v.category,method:el('actMethod').value,note:b.name,person:existing?.person||person(),billId:b.id,billMonth:m,updatedAt:new Date().toISOString()}}],b.name+' saved: '+money(amount)+' for '+monthLabel(m)+'.')){closeDlg('dlgActual');render()}});
+
+// ---------------------------------------------------------------- bills
+let editBill=null;
+function openBill(b=null){editBill=b;const m=clampMonth(month),v=b?C.billValues(b,m):null;
+ el('billHead').textContent=b?'Edit '+b.name:'Add bill';el('billName').value=b?.name||'';el('billKind').value=b?.kind||'fixed';el('billAmount').value=v?.amount??'';el('billEvery').value=String(b?.every??1);el('billDay').value=v?.day||1;el('billStart').value=b?.start||m;el('billEnd').value=b?.end||'';
+ el('billCategory').innerHTML=catOptions(v?.category||'bills',v?.category);el('billMethod').innerHTML=methodOptions(v?.method||'bank-hapoalim');
+ el('billFromWrap').classList.toggle('hidden',!b);el('billFrom').value=b?(m>b.start?m:b.start):'';el('billDelete').classList.toggle('hidden',!b);showErr('billErr','');openDlg('dlgBill')}
+el('formBill').addEventListener('submit',e=>{e.preventDefault();
+ const name=el('billName').value.trim(),amount=C.round2(el('billAmount').value),day=Number(el('billDay').value),every=Number(el('billEvery').value),start=el('billStart').value,end=el('billEnd').value,from=el('billFrom').value;
+ if(!name)return showErr('billErr','Give the bill a name.');if(!(amount>0))return showErr('billErr','Enter an amount above zero.');if(!(day>=1&&day<=31))return showErr('billErr','Day must be 1–31.');if(!C.isMonth(start))return showErr('billErr','Choose the first month.');if(end&&end<start)return showErr('billErr','The last month is before the first month.');
+ const vals={amount,day,method:el('billMethod').value,category:el('billCategory').value};
+ let b;
+ if(!editBill)b={id:C.safeId('b-'+C.newId()),name,kind:el('billKind').value,every,start,end:every===0?'':end,pauses:[],skipped:[],changes:[],...vals};
+ else{b={...editBill,name,kind:el('billKind').value,every,start,end:every===0?'':end};const cur=C.billValues(editBill,C.isMonth(from)?from:start),changed=Object.keys(vals).filter(k=>String(vals[k])!==String(cur[k]));
+  if(changed.length){if(!C.isMonth(from)||from<=start){Object.assign(b,vals);b.changes=(b.changes||[]).filter(c=>c.from>start)}else{const ch={from};changed.forEach(k=>ch[k]=vals[k]);b.changes=[...(b.changes||[]).filter(c=>c.from!==from),ch]}}}
+ if(write([{op:'set',coll:'bills',id:b.id,data:b}],'Bill "'+name+'" saved.')){closeDlg('dlgBill');render()}});
+el('billDelete').onclick=()=>{if(!editBill||!confirm('Delete '+editBill.name+' completely? It disappears from every month, including past ones. Amounts you already entered for it are kept as normal transactions.\n\nTo stop a bill from now on, use Pause or set a last month instead.'))return;write([{op:'delete',coll:'bills',id:editBill.id}],editBill.name+' deleted.');closeDlg('dlgBill');render()};
+function togglePause(b){const m=clampMonth(thisMonth()),pauses=[...(b.pauses||[])],open=pauses.find(p=>p.from<=clampMonth(month)&&(!p.to||clampMonth(month)<=p.to));
+ if(open){open.to=C.addMonths(m,-1);const kept=pauses.filter(p=>!(p.to&&p.to<p.from));write([{op:'set',coll:'bills',id:b.id,data:{...b,pauses:kept}}],b.name+' resumed from '+monthLabel(m)+'.')}
+ else{pauses.push({from:m});write([{op:'set',coll:'bills',id:b.id,data:{...b,pauses}}],b.name+' paused from '+monthLabel(m)+'. Earlier months are unchanged.')}render()}
+
+// ---------------------------------------------------------------- card details & statements
+let cardCtx=null;
+function openCard(cardId,m){const col=C.cardCollection(data,cardId,m);if(!col.card)return;cardCtx={cardId,m};
+ el('cardHead').textContent=col.card.name;
+ const basis=col.basis==='statement'?`Statement total entered. Purchases recorded in the app for this collection: ${money(col.tracked)}${Math.abs(col.amount-col.tracked)>0.009?' (the difference of '+money(C.round2(col.amount-col.tracked))+' is purchases not recorded here, or recorded ones that the card company bills later).':'.'}`:col.basis==='partial'?`${money(col.statement.amount)} was known on ${esc(dayLabel(col.statement.asOf))}, plus ${money(C.sum(col.added,C.signed))} recorded since.`:`Estimate from ${col.items.length} recorded item${col.items.length===1?'':'s'}. Enter the statement total when it arrives and it replaces this estimate.`;
+ el('cardBody').innerHTML=`<p class="subtle">${esc(col.card.bank)} · collected ${esc(dayLabel(col.date))}</p><div class="row" style="margin:10px 0"><strong>Expected collection</strong><strong class="amount" style="font-size:22px">${money(col.amount)}</strong></div><div class="hint">${basis}${col.hasEstimates?' Includes estimated bills.':''}</div>
+ <h3>Recorded for this collection</h3>${col.items.length?col.items.map(t=>`<div class="tx"><div><strong>${esc(t.note||catName(t.category))}</strong><span class="subtle">${esc(t.date)} · ${esc(catName(t.category))}${t.virtual?' · automatic bill':''}${t.estimate?' · estimate':''}${col.basis==='partial'&&!col.added.includes(t)?' · in the known amount':''}</span></div><strong class="amount">${t.type==='refund'?'+':''}${money(t.amount)}</strong></div>`).join(''):'<p class="subtle">Nothing recorded for this collection.</p>'}
+ <div class="actions"><button class="primary" type="button" data-act="statement">${col.statement?'Change statement total':'Enter statement total'}</button><button class="secondary" type="button" data-act="import" data-card="${esc(cardId)}">⬆ Import card file</button></div>`;
+ openDlg('dlgCard')}
+function openStatement(){if(!cardCtx)return;const {cardId,m}=cardCtx,col=C.cardCollection(data,cardId,m),st=col.statement;
+ el('stHead').textContent=col.card.name+' — '+monthLabel(m);el('stInfo').textContent='Use the total from the card app or statement for the '+dayLabel(col.date)+' collection. It replaces the estimate.'+(st?.status==='partial'?' (Saved now: '+money(st.amount)+' known on '+dayLabel(st.asOf)+'.)':'');
+ // a typed statement total is normally the final one, even if a "known so far" amount was saved before
+ el('stAmount').value=st?.status==='final'?st.amount:'';el('stStatus').value='final';el('stAsOf').value=st?.asOf||today();el('stAsOfWrap').classList.toggle('hidden',el('stStatus').value!=='partial');el('stDelete').classList.toggle('hidden',!st);showErr('stErr','');closeDlg('dlgCard');openDlg('dlgStatement')}
+el('stStatus').addEventListener('change',()=>el('stAsOfWrap').classList.toggle('hidden',el('stStatus').value!=='partial'));
+el('formStatement').addEventListener('submit',e=>{e.preventDefault();const {cardId,m}=cardCtx,amount=C.round2(el('stAmount').value),status=el('stStatus').value,asOf=el('stAsOf').value;
+ if(el('stAmount').value===''||amount<0)return showErr('stErr','Enter the total.');if(status==='partial'&&!C.isDate(asOf))return showErr('stErr','Choose the date this amount was known.');
+ const st=C.statementFor(data,cardId,m),id=st?.id||C.safeId('st-'+cardId+'-'+m),d={card:cardId,month:m,amount,status};if(status==='partial')d.asOf=asOf;
+ if(write([{op:'set',coll:'statements',id,data:d}],'Statement saved.')){closeDlg('dlgStatement');render();openCard(cardId,m)}});
+el('stDelete').onclick=()=>{const {cardId,m}=cardCtx,st=C.statementFor(data,cardId,m);if(!st||!confirm('Remove this statement total? The amount goes back to the estimate from recorded purchases.'))return;write([{op:'delete',coll:'statements',id:st.id}],'Statement removed.');closeDlg('dlgStatement');render()};
+
+// ---------------------------------------------------------------- import card files
+let imp=null;
+async function readSheetRows(file){
+ if(/\.(xlsx|xls)$/i.test(file.name)){
+  if(!window.XLSX)await new Promise((ok,bad)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=ok;s.onerror=()=>bad(Error('could not load the Excel reader (are you online?)'));document.head.appendChild(s)});
+  const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});let best=[],bestN=-1;
+  for(const n of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''});const k=C.parseStatementRows(rows).rows.length;if(k>bestN){best=rows;bestN=k}}return best}
+ const buf=await file.arrayBuffer();let text=new TextDecoder('utf-8').decode(buf);if(text.includes('�'))try{text=new TextDecoder('windows-1255').decode(buf)}catch{}
+ return C.parseCsv(text)}
+async function startImport(file,cardHint){
+ try{const rows=await readSheetRows(file),parsed=C.parseStatementRows(rows);
+  if(!parsed.rows.length)return banner('No purchases found in '+file.name+'. The file needs a date column and an amount column.','warn');
+  const cards=data.settings.cards,text=file.name+' '+rows.slice(0,15).flat().join(' ');
+  const guessed=cardHint||C.guessCard(cards,text);
+  imp={file:file.name,parsed,cardId:guessed||cards[0]?.id,cardUnsure:!guessed};matchImport();openDlg('dlgImport')}
+ catch(e){banner('Could not read '+file.name+': '+(e.message||e))}}
+function matchImport(){imp.rows=C.matchImport(data,imp.cardId,imp.parsed.rows);for(const r of imp.rows)if(!r.category)r.category='unexpected';const card=C.card(data.settings,imp.cardId),dues={};for(const r of imp.rows)if(r.include){const d=C.collectionMonth(r.date,card);dues[d]=(dues[d]||0)+1}imp.stMonth=Object.entries(dues).sort((a,b)=>b[1]-a[1])[0]?.[0]||month;renderImport()}
+function renderImport(){const card=C.card(data.settings,imp.cardId),inc=imp.rows.filter(r=>r.include),total=C.sum(inc,r=>(r.type==='refund'?-1:1)*r.amount);
+ const statusTxt=r=>r.status==='already'?'Already imported':r.status==='duplicate'?'Looks like “'+esc(r.match.note||'')+'” you already recorded':r.status==='bill'?'Pays regular bill: '+esc(r.match.note):r.guess==='none'?'New shop — check category':r.guess==='learned'?'Category remembered':'';
+ el('impBody').innerHTML=`<p class="subtle">${esc(imp.file)} · ${imp.rows.length} rows found. Columns used: date, ${imp.parsed.columns.merchant!=null?'shop, ':''}amount.</p>
+ <div class="grid2"><div><label for="impCard">Card</label><select id="impCard">${data.settings.cards.map(c=>`<option value="${esc(c.id)}"${c.id===imp.cardId?' selected':''}>${esc(c.name)}</option>`).join('')}</select></div><div>${imp.cardUnsure?'<p class="err" style="margin-top:34px">Check the card — it could not be recognised from the file.</p>':''}</div></div>
+ <div style="overflow:auto;margin-top:12px"><table class="imp"><thead><tr><th></th><th>Date</th><th>Shop</th><th>Amount</th><th>Category</th><th class="hide-sm">Note</th></tr></thead><tbody>${imp.rows.map((r,i)=>`<tr class="${r.include?'':'off'} ${r.status!=='new'||r.guess==='none'?'flag':''}"><td><input type="checkbox" data-imp-inc="${i}" ${r.include?'checked':''} aria-label="Import this row"></td><td>${esc(dayLabel(r.date))}</td><td>${esc(r.merchant)}</td><td class="amount ${r.type==='refund'?'positive':''}">${r.type==='refund'?'+':''}${money(r.amount)}</td><td><select data-imp-cat="${i}" aria-label="Category">${r.status==='bill'?`<option value="__bill" selected>→ ${esc(r.match.note)}</option>`:''}${catOptions(r.status==='bill'?'':r.category,r.status==='bill'?null:r.category)}</select></td><td class="hide-sm subtle">${statusTxt(r)}</td></tr>`).join('')}</tbody></table></div>
+ <label style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" id="impStmt"> Also save ${money(total)} as the ${esc(card?.name||'')} statement total for the ${esc(card?dayLabel(C.collectionDate(imp.stMonth,card)):'')} collection</label><div class="subtle">Only tick this if the file is the complete statement for that collection.</div>
+ <div class="actions"><button class="primary" type="button" data-act="imp-save">Import ${inc.length} item${inc.length===1?'':'s'}</button><button class="secondary" type="button" data-close>Cancel</button></div>`;
+ el('impCard').onchange=e=>{imp.cardId=e.target.value;imp.cardUnsure=false;matchImport()}}
+el('dlgImport').addEventListener('change',e=>{const i=e.target.dataset.impInc,c=e.target.dataset.impCat;if(i!=null){imp.rows[i].include=e.target.checked;renderImport()}if(c!=null){const r=imp.rows[c];if(e.target.value==='__bill')return;if(r.status==='bill'){r.status='new';r.match=null;r.userCategory=true;r.category=e.target.value;renderImport();return}r.userCategory=e.target.value!==r.category||r.guess==='none';r.category=e.target.value}});
+function saveImport(){const ops=[],learn={},now=new Date().toISOString();let n=0;
+ for(const r of imp.rows){if(!r.include)continue;n++;
+  const t={type:r.type,amount:r.amount,date:r.date,category:r.category,method:imp.cardId,note:r.merchant,merchant:r.merchant,person:person(),importKey:r.key,updatedAt:now};
+  if(r.status==='bill'){t.billId=r.match.billId;t.billMonth=r.match.billMonth;t.note=r.match.note;t.category=r.match.category}
+  ops.push({op:'set',coll:'transactions',id:r.key,data:t});   // the id comes from the row, so importing the same file twice (even on two phones) cannot double it
+  if(r.userCategory&&r.merchant)learn[C.safeId(C.normMerchant(r.merchant))]={category:r.category}}
+ for(const [id,d] of Object.entries(learn))ops.push({op:'set',coll:'merchants',id,data:d});
+ if(el('impStmt')?.checked){const total=C.sum(imp.rows.filter(r=>r.include),r=>(r.type==='refund'?-1:1)*r.amount),st=C.statementFor(data,imp.cardId,imp.stMonth);ops.push({op:'set',coll:'statements',id:st?.id||C.safeId('st-'+imp.cardId+'-'+imp.stMonth),data:{card:imp.cardId,month:imp.stMonth,amount:total,status:'final'}})}
+ if(!n&&ops.length===0)return closeDlg('dlgImport');
+ if(write(ops,n+' item'+(n===1?'':'s')+' imported.')){closeDlg('dlgImport');render()}}
+el('fileImport').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)startImport(f,el('fileImport').dataset.card||null)};
+
+// ---------------------------------------------------------------- settings
+function renderSettings(){const s=data.settings,cfg=currentConfig();
+ el('tab-settings').innerHTML=`
+ <div class="card"><h2>Cloud sync</h2>${store.kind==='cloud'?`<p>Signed in as <b>${esc(user?.email||'—')}</b>. Changes appear on every signed-in phone within seconds, and work offline.</p><div class="actions"><button class="secondary" type="button" data-act="share-setup">Copy setup link for another phone</button><button class="secondary" type="button" data-act="signout">Sign out</button>${window.FAMILY_BUDGET_FIREBASE_CONFIG?'':'<button class="secondary" type="button" data-act="disconnect">Stop using cloud on this device</button>'}</div>`:`<p>This budget is saved <b>on this device only</b>. To share it between two phones, connect your free Firebase database (see SETUP.md).</p><label for="cfgText">Firebase config (paste from the Firebase console)</label><textarea id="cfgText" placeholder="const firebaseConfig = { apiKey: ... }">${cfg?esc(JSON.stringify(cfg,null,1)):''}</textarea><div class="actions"><button class="primary" type="button" data-act="connect">Connect</button></div>`}</div>
+ <div class="card"><h2>Income & categories</h2><form id="formCats" novalidate><label for="setIncome">Monthly income (₪)</label><input id="setIncome" type="number" step="any" min="0" value="${esc(s.income)}">
+  ${s.categories.map((c,i)=>`<div class="setrow"><div><label>Name</label><input data-cat-name="${i}" value="${esc(c.name)}"></div><div><label>Monthly (₪)</label><input data-cat-limit="${i}" type="number" step="any" min="0" value="${esc(c.limit)}"></div><div><label>Opening carry (₪)</label><input data-cat-open="${i}" type="number" step="any" value="${esc(c.opening||0)}" ${c.rollover?'':'disabled'}></div><div><label><input type="checkbox" data-cat-roll="${i}" ${c.rollover?'checked':''}> Rolls over</label></div></div>`).join('')}
+  <div class="subtle" style="margin-top:8px">Categories total ${money(C.sum(s.categories,c=>c.limit))} of ${money(s.income)} income.</div><div class="actions"><button class="primary" type="submit">Save categories</button></div></form></div>
+ <div class="card"><h2>Cards</h2><form id="formCards" novalidate>${s.cards.map((c,i)=>`<div class="setrow"><div><label>Card</label><input data-card-name="${i}" value="${esc(c.name)}"></div><div><label>Bank</label><select data-card-bank="${i}"><option${c.bank==='Leumi'?' selected':''}>Leumi</option><option${c.bank==='Hapoalim'?' selected':''}>Hapoalim</option></select></div><div><label>Payment day</label><input data-card-day="${i}" type="number" min="1" max="28" value="${esc(c.day)}"></div><div></div></div>`).join('')}<div class="subtle" style="margin-top:8px">Purchases before the payment day are expected that month; on or after it, the next month.</div><div class="actions"><button class="primary" type="submit">Save cards</button></div></form></div>
+ <div class="card"><h2>Accounts & car reserve</h2><form id="formAcc" novalidate><div class="grid2"><div><label for="accLeumi">Leumi balance (₪)</label><input id="accLeumi" type="number" step="any" value="${esc(s.accounts.leumi)}"></div><div><label for="accHap">Hapoalim balance (₪)</label><input id="accHap" type="number" step="any" value="${esc(s.accounts.hapoalim)}"></div><div><label for="accRes">Protected car reserve (₪)</label><input id="accRes" type="number" step="any" min="0" value="${esc(s.accounts.carReserve)}"></div><div><label for="accDue">Balloon payment due</label><input id="accDue" type="month" value="${esc(s.accounts.carReserveDue||'')}"></div></div>
+  <p class="subtle">Leumi outside the reserve: <b>${money(C.round2(s.accounts.leumi-s.accounts.carReserve))}</b> · balances as of ${esc(s.accounts.asOf||'—')}. The reserve is never counted as spendable.</p><div class="actions"><button class="primary" type="submit">Save balances</button></div></form></div>
+ <div class="card"><h2>Backup</h2><p class="subtle">${store.kind==='cloud'?'Your data is in the cloud, but a backup file is still a good idea once a month.':'Download a backup regularly — this device is the only copy.'}</p><div class="actions"><button class="primary" type="button" data-act="backup">⬇ Download backup</button><button class="secondary" type="button" data-act="csv">⬇ Transactions (CSV)</button><button class="secondary" type="button" data-act="restore">⬆ Restore backup</button></div>
+  <label for="personName">Name shown on entries from this ${store.kind==='cloud'?'account':'device'}</label><input id="personName" value="${esc(person())}" ${store.kind==='cloud'?'disabled':''}></div>
+ <p class="subtle">Family Budget ${APP}</p>`;
+ el('formCats').onsubmit=e=>{e.preventDefault();const income=Number(el('setIncome').value);if(el('setIncome').value===''||!(income>=0))return banner('Enter the monthly income.','warn');
+  const cats=s.categories.map((c,i)=>({...c,name:document.querySelector(`[data-cat-name="${i}"]`).value.trim()||c.name,limit:Number(document.querySelector(`[data-cat-limit="${i}"]`).value),rollover:document.querySelector(`[data-cat-roll="${i}"]`).checked,opening:Number(document.querySelector(`[data-cat-open="${i}"]`).value)||0}));
+  if(cats.some(c=>!(c.limit>=0)))return banner('Every category needs an amount of zero or more.','warn');
+  write([{op:'settings',data:{...s,income,categories:cats}}],'Categories saved.');render()};
+ document.querySelectorAll('[data-cat-roll]').forEach(cb=>cb.onchange=()=>{document.querySelector(`[data-cat-open="${cb.dataset.catRoll}"]`).disabled=!cb.checked});
+ el('formCards').onsubmit=e=>{e.preventDefault();const cards=s.cards.map((c,i)=>({...c,name:document.querySelector(`[data-card-name="${i}"]`).value.trim()||c.name,bank:document.querySelector(`[data-card-bank="${i}"]`).value,day:Math.min(28,Math.max(1,Number(document.querySelector(`[data-card-day="${i}"]`).value)||c.day))}));write([{op:'settings',data:{...s,cards}}],'Cards saved.');render()};
+ el('formAcc').onsubmit=e=>{e.preventDefault();const v=(id,old)=>el(id).value===''?old:C.round2(el(id).value);write([{op:'settings',data:{...s,accounts:{...s.accounts,leumi:v('accLeumi',s.accounts.leumi),hapoalim:v('accHap',s.accounts.hapoalim),carReserve:v('accRes',s.accounts.carReserve),carReserveDue:el('accDue').value||s.accounts.carReserveDue,asOf:today()}}}],'Balances saved.');render()};
+ const pn=el('personName');if(pn)pn.onchange=()=>{lsSet('familyBudgetPerson',pn.value.trim()||'Me')};
+}
+
+// ---------------------------------------------------------------- backup / restore / migrate
+function download(name,content,type){const url=URL.createObjectURL(new Blob([content],{type})),a=document.createElement('a');a.href=url;a.download=name;a.style.display='none';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000)}
+function exportCsv(){const s=data.settings,rows=[['date','type','category','amount_ils','description','paid_with','recorded_by','status']];const last=thisMonth()<s.startMonth?s.startMonth:thisMonth();
+ const items=Object.entries(data.transactions).map(([id,t])=>({...t,id}));for(let m=s.startMonth,g=0;m<=last&&g<600;g++,m=C.addMonths(m,1))items.push(...C.occurrences(data,m).filter(o=>o.date<=today()));
+ for(const t of items.sort((a,b)=>String(a.date).localeCompare(String(b.date))))rows.push([t.date,t.type,catName(t.category),t.amount,t.note,methodName(t.method),t.person,t.estimate?'estimate':t.virtual?'automatic bill':'recorded']);
+ download('family-budget-transactions-'+today()+'.csv','﻿'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n'),'text/csv;charset=utf-8')}
+// Replace everything with a new dataset (restore, migration, first setup).
+function replaceAll(next,legacyJson,msg){
+ const cur=data||normalise(store.kind==='cloud'?store.data:store.read())||emptyData(),ops=[];
+ for(const c of COLLS)for(const id of Object.keys(cur[c]||{}))if(!(next[c]||{})[id])ops.push({op:'delete',coll:c,id});
+ for(const c of COLLS)for(const [id,d] of Object.entries(next[c]||{}))ops.push({op:'set',coll:c,id,data:d});
+ ops.push({op:'settings',data:next.settings});if(legacyJson)ops.push({op:'legacy',json:legacyJson});
+ return write(ops,msg)}
+function loadAnyBackup(obj,raw){
+ if(C.isBackup(obj))return {next:C.fromBackup(obj),notes:[],legacy:null,what:'backup from '+String(obj.exportedAt||'').slice(0,10)};
+ if(C.isLegacyBackup(obj)){const r=C.migrateLegacy(obj,data);return {next:r.db,notes:r.notes,legacy:raw,what:'old-app backup (v27/v28)'}}
+ throw Error('this is not a Family Budget backup')}
+function restoreFrom(raw){let obj;try{obj=JSON.parse(raw)}catch{throw Error('the file is not valid JSON')}
+ const {next,notes,legacy,what}=loadAnyBackup(obj,raw),n=Object.keys(next.transactions).length,b=Object.keys(next.bills).length;
+ if(!confirm('Replace ALL budget data'+(store.kind==='cloud'?' for both phones':'')+' with this '+what+'?\n\n'+n+' transactions, '+b+' bills, '+Object.keys(next.statements).length+' card statements.'+(data?'\n\nTip: download a backup of the current data first.':'')))return;
+ if(replaceAll(next,legacy,'Restored: '+n+' transactions and '+b+' bills.')){if(notes.length)banner(notes.join(' '),'warn');month=clampMonth(thisMonth());tab='budget';render()}}
+el('fileBackup').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{restoreFrom(await f.text())}catch(err){banner('Could not restore: '+err.message+'. Nothing was changed.')}};
+
+// ---------------------------------------------------------------- Firebase connection
+const currentConfig=()=>{if(window.FAMILY_BUDGET_FIREBASE_CONFIG)return window.FAMILY_BUDGET_FIREBASE_CONFIG;try{return JSON.parse(lsGet(CFG_KEY)||'null')}catch{return null}};
+function readSetupLink(){const m=location.hash.match(/#setup=([^&]+)/);if(!m)return false;let ok=false;try{const c=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));if(c.apiKey&&c.projectId){ok=lsSet(CFG_KEY,JSON.stringify(c));if(ok)flash('This phone is now connected to the family budget. Sign in to continue.')}}catch{banner('That setup link is damaged.')}history.replaceState(null,'',location.pathname+location.search);return ok}
+readSetupLink();
+window.addEventListener('hashchange',()=>{if(readSetupLink())location.reload()});
+async function startStore(){
+ const cfg=currentConfig();user=null;data=null;status={ready:false};
+ if(!cfg){store=new LocalStore();store.subscribe((d,st)=>{status=st;data=normalise(d);render()});return}
+ const cs=new CloudStore(cfg);store=cs;render();
+ try{await cs.init()}catch(e){banner('Could not reach Firebase ('+errText(e)+'). Check the config and your connection.');return}
+ cs.onAuth(u=>{user=u;data=null;status={ready:false};if(u)cs.subscribe((d,st)=>{status=st;data=st.ready?normalise(d):null;render()},err=>{status={ready:false,error:'Access refused: '+errText(err)};data=null;render()});else cs.stop();render()});
+}
+
+// ---------------------------------------------------------------- one click handler
+document.addEventListener('click',async e=>{
+ const b=e.target.closest('button,[data-close]');if(!b)return;
+ if(b.hasAttribute('data-close')){const d=b.closest('dialog');if(d)d.close();return}
+ if(b.dataset.tab){tab=b.dataset.tab;render();return}
+ if(b.dataset.go){tab=b.dataset.go;render();return}
+ if(b.dataset.monthStep){month=C.addMonths(month,Number(b.dataset.monthStep));render();return}
+ const a=b.dataset.act;if(!a)return;
+ try{switch(a){
+  case 'dismiss':el('banner').className='app-banner hidden';break;
+  case 'add-expense':openExpense('expense');break;
+  case 'add-refund':openExpense('refund');break;
+  case 'view-cat':txFilter=b.dataset.id;tab='transactions';render();break;
+  case 'edit-tx':{const id=b.dataset.id,t=data.transactions[id]?{...data.transactions[id],id}:C.itemsForMonth(data,month).find(x=>x.id===id)||[-2,-1,1].flatMap(n=>C.itemsForMonth(data,C.addMonths(month,n))).find(x=>x.id===id);if(t)openExpense(t.type,t);else{banner('That item could not be found (it may have changed on the other phone).','warn');render()}break}
+  case 'actual':openActual(b.dataset.bill,b.dataset.month);break;
+  case 'add-bill':openBill();break;
+  case 'edit-bill':openBill(data.bills[b.dataset.id]);break;
+  case 'pause-bill':togglePause(data.bills[b.dataset.id]);break;
+  case 'card':openCard(b.dataset.card,month);break;
+  case 'statement':openStatement();break;
+  case 'import':closeDlg('dlgCard');el('fileImport').dataset.card=b.dataset.card||'';el('fileImport').click();break;
+  case 'imp-save':saveImport();break;
+  case 'backup':download('family-budget-backup-'+today()+'.json',JSON.stringify(C.makeBackup(data),null,1),'application/json');flash('Backup downloaded. It contains financial information — keep it private.');break;
+  case 'csv':exportCsv();break;
+  case 'restore':el('fileBackup').click();break;
+  case 'fresh':if(confirm('Start with example categories, cards and bills? You can change all of them in Settings and Bills.'))replaceAll(C.emptyDb(),null,'Budget created.');break;
+  case 'import-old':restoreFrom(lsGet(OLD_KEY));break;
+  case 'copy-local':{const l=normalise(new LocalStore().read());if(l&&confirm('Copy this device’s budget into the shared cloud budget?'))replaceAll(l,null,'Copied to the cloud.');break}
+  case 'signin':await store.signIn();break;
+  case 'signout':if(confirm('Sign out on this device?'))await store.signOut();break;
+  case 'use-local':case 'disconnect':if(confirm('Use the budget saved on this device only? The cloud data is not deleted.')){try{localStorage.removeItem(CFG_KEY)}catch{}if(window.FAMILY_BUDGET_FIREBASE_CONFIG){window.FAMILY_BUDGET_FIREBASE_CONFIG=null}location.reload()}break;
+  case 'connect':{let c;try{c=C.parseFirebaseConfig(el('cfgText').value)}catch(err){banner('Could not connect: '+err.message+'.','warn');break}if(!lsSet(CFG_KEY,JSON.stringify(c))){banner('This browser will not store the setting. Open the app in a normal browser tab.');break}location.reload();break}
+  case 'share-setup':{const link=location.origin+location.pathname+'#setup='+encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(currentConfig())))));try{await navigator.clipboard.writeText(link);flash('Setup link copied. Send it to the other phone and open it there.')}catch{prompt('Copy this link and open it on the other phone:',link)}break}
+ }}catch(err){banner((a==='signin'?'Sign-in failed: ':'')+errText(err))}
+});
+el('monthPicker').addEventListener('change',e=>{if(C.isMonth(e.target.value))month=e.target.value;render()});
+el('txFilter').addEventListener('change',e=>{txFilter=e.target.value;render()});
+window.addEventListener('online',renderSync);window.addEventListener('offline',renderSync);
+
+startStore();
+})();
+</script></body></html>
