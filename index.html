@@ -118,7 +118,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 <input type="file" id="fileBackup" accept=".json,application/json" class="hidden">
 
 <!-- the ?v= number must change with APP below on every update, so phones never mix an old core.js with a new page -->
-<script src="core.js?v=3.7"></script>
+<script src="core.js?v=3.8"></script>
 <script>
 // The family's Firebase project. This is not a secret: the Firestore rules decide who can read the data.
 window.FAMILY_BUDGET_FIREBASE_CONFIG = {
@@ -132,7 +132,7 @@ window.FAMILY_BUDGET_FIREBASE_CONFIG = {
 </script>
 <script>
 (()=>{'use strict';
-const C=window.BudgetCore,APP='3.7',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
+const C=window.BudgetCore,APP='3.8',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
 const el=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=x=>(Number(x)<0?'−':'')+'₪'+Math.abs(Number(x||0)).toLocaleString('en-US',{maximumFractionDigits:2});
 const monthLabel=m=>C.isMonth(m)?new Date(m+'-02T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'}):'—';
@@ -182,7 +182,8 @@ class CloudStore{
  stop(){this.unsubs.forEach(u=>u());this.unsubs=[];this.data=emptyData();this.loaded={}}
  status(){return {ready:['settings',...COLLS].every(k=>this.loaded[k]),pending:Object.values(this.pending).some(Boolean),offline:this.fromCache&&!navigator.onLine}}
  subscribe(fn,onError){const F=this.F;this.stop();const emit=()=>fn(this.data,this.status());
-  this.unsubs.push(F.onSnapshot(F.doc(this.fs,...BASE,'meta','settings'),{includeMetadataChanges:true},s=>{this.data.settings=s.exists()?s.data():null;this.pending.settings=s.metadata.hasPendingWrites;this.fromCache=s.metadata.fromCache;this.loaded.settings=true;emit()},onError));
+  this.unsubs.push(F.onSnapshot(F.doc(this.fs,...BASE,'meta','settings'),{includeMetadataChanges:true},s=>{if(!s.exists()&&s.metadata.fromCache)return;   // an empty phone copy is not "no budget": wait for Google
+  this.data.settings=s.exists()?s.data():null;this.pending.settings=s.metadata.hasPendingWrites;this.fromCache=s.metadata.fromCache;this.loaded.settings=true;emit()},onError));
   for(const c of COLLS)this.unsubs.push(F.onSnapshot(F.collection(this.fs,...BASE,c),{includeMetadataChanges:true},s=>{const o={};s.forEach(d=>{o[d.id]=d.data()});this.data[c]=o;this.pending[c]=s.metadata.hasPendingWrites;this.fromCache=s.metadata.fromCache;this.loaded[c]=true;emit()},onError));
  }
  apply(ops){const F=this.F,commits=[];let batch=F.writeBatch(this.fs),n=0;
