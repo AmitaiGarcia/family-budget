@@ -118,7 +118,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 <input type="file" id="fileBackup" accept=".json,application/json" class="hidden">
 
 <!-- the ?v= number must change with APP below on every update, so phones never mix an old core.js with a new page -->
-<script src="core.js?v=3.8"></script>
+<script src="core.js?v=3.9"></script>
 <script>
 // The family's Firebase project. This is not a secret: the Firestore rules decide who can read the data.
 window.FAMILY_BUDGET_FIREBASE_CONFIG = {
@@ -132,7 +132,7 @@ window.FAMILY_BUDGET_FIREBASE_CONFIG = {
 </script>
 <script>
 (()=>{'use strict';
-const C=window.BudgetCore,APP='3.8',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
+const C=window.BudgetCore,APP='3.9',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
 const el=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=x=>(Number(x)<0?'−':'')+'₪'+Math.abs(Number(x||0)).toLocaleString('en-US',{maximumFractionDigits:2});
 const monthLabel=m=>C.isMonth(m)?new Date(m+'-02T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'}):'—';
@@ -591,11 +591,18 @@ function replaceAll(next,legacyJson,msg){
  for(const c of COLLS)for(const [id,d] of Object.entries(next[c]||{}))ops.push({op:'set',coll:c,id,data:d});
  ops.push({op:'settings',data:next.settings});if(legacyJson)ops.push({op:'legacy',json:legacyJson});
  return write(ops,msg)}
+// Safety lock: the setup screen can show by mistake (a broken copy saved on the phone).
+// Before any setup button writes, ask Google directly; if a budget is there, change nothing.
+async function cloudHasBudget(){
+ if(store.kind!=='cloud'||data)return false;
+ try{const s=await store.F.getDocFromServer(store.F.doc(store.fs,...BASE,'meta','settings'));if(!s.exists())return false}
+ catch(e){banner('Could not check the cloud ('+errText(e)+'). Nothing was changed. Try again when you are online.');return true}
+ banner('Your budget is safe in the cloud. This phone is showing a broken saved copy, so nothing was changed. Clear this site’s data in the browser settings, then sign in again.');return true}
 function loadAnyBackup(obj,raw){
  if(C.isBackup(obj))return {next:C.fromBackup(obj),notes:[],legacy:null,what:'backup from '+String(obj.exportedAt||'').slice(0,10)};
  if(C.isLegacyBackup(obj)){const r=C.migrateLegacy(obj,data);return {next:r.db,notes:r.notes,legacy:raw,what:'old-app backup (v27/v28)'}}
  throw Error('this is not a Family Budget backup')}
-async function restoreFrom(raw){let obj;try{obj=JSON.parse(raw)}catch{throw Error('the file is not valid JSON')}
+async function restoreFrom(raw){if(await cloudHasBudget())return;let obj;try{obj=JSON.parse(raw)}catch{throw Error('the file is not valid JSON')}
  const {next,notes,legacy,what}=loadAnyBackup(obj,raw),n=Object.keys(next.transactions).length,b=Object.keys(next.bills).length;
  if(!await ask((data?'This replaces ALL budget data':'This sets up the budget')+(store.kind==='cloud'?' for both phones':'')+' from this '+what+':\n\n'+n+' transactions, '+b+' bills, '+Object.keys(next.statements).length+' card statements.'+(data?'\n\nTip: download a backup of the current data first.':''),{title:data?'Replace all data?':'Import this file?',yes:data?'Replace everything':'Import'}))return;
  if(replaceAll(next,legacy,'Restored: '+n+' transactions and '+b+' bills.')){if(notes.length)banner(notes.join(' '),'warn');monthChosen=false;tab='home';render()}}   // the month is chosen once the new data has arrived (cloud data arrives a moment later)
@@ -648,9 +655,9 @@ document.addEventListener('click',async e=>{
   case 'backup':download('family-budget-backup-'+today()+'.json',JSON.stringify(C.makeBackup(data),null,1),'application/json');flash('Backup downloaded. It contains financial information — keep it private.');break;
   case 'csv':exportCsv();break;
   case 'restore':el('fileBackup').click();break;
-  case 'fresh':if(await ask('Start with example categories, cards and bills? You can change all of them in Settings and Bills.',{yes:'Start'}))replaceAll(C.emptyDb(),null,'Budget created.');break;
+  case 'fresh':if(await cloudHasBudget())break;if(await ask('Start with example categories, cards and bills? You can change all of them in Settings and Bills.',{yes:'Start'}))replaceAll(C.emptyDb(),null,'Budget created.');break;
   case 'import-old':await restoreFrom(lsGet(OLD_KEY));break;
-  case 'copy-local':{const l=normalise(new LocalStore().read());if(l&&await ask('Copy this device’s budget into the shared cloud budget?',{yes:'Copy'}))replaceAll(l,null,'Copied to the cloud.');break}
+  case 'copy-local':{if(await cloudHasBudget())break;const l=normalise(new LocalStore().read());if(l&&await ask('Copy this device’s budget into the shared cloud budget?',{yes:'Copy'}))replaceAll(l,null,'Copied to the cloud.');break}
   case 'signin':await store.signIn();break;
   case 'signout':if(await ask('Sign out on this device?',{yes:'Sign out'}))await store.signOut();break;
   case 'use-local':case 'disconnect':if(await ask('Use the budget saved on this device only? The cloud data is not deleted.',{yes:'Use this device only'})){try{localStorage.removeItem(CFG_KEY)}catch{}if(window.FAMILY_BUDGET_FIREBASE_CONFIG){window.FAMILY_BUDGET_FIREBASE_CONFIG=null}location.reload()}break;
