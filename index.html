@@ -118,7 +118,7 @@ dialog{border:0;border-radius:16px;max-width:560px;width:calc(100% - 24px);paddi
 <input type="file" id="fileBackup" accept=".json,application/json" class="hidden">
 
 <!-- the ?v= number must change with APP below on every update, so phones never mix an old core.js with a new page -->
-<script src="core.js?v=3.9"></script>
+<script src="core.js?v=3.10"></script>
 <script>
 // The family's Firebase project. This is not a secret: the Firestore rules decide who can read the data.
 window.FAMILY_BUDGET_FIREBASE_CONFIG = {
@@ -132,7 +132,7 @@ window.FAMILY_BUDGET_FIREBASE_CONFIG = {
 </script>
 <script>
 (()=>{'use strict';
-const C=window.BudgetCore,APP='3.9',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
+const C=window.BudgetCore,APP='3.10',LOCAL_KEY='familyBudgetV3',CFG_KEY='familyBudgetFirebaseConfig',OLD_KEY='familyBudgetV1';
 const el=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=x=>(Number(x)<0?'−':'')+'₪'+Math.abs(Number(x||0)).toLocaleString('en-US',{maximumFractionDigits:2});
 const monthLabel=m=>C.isMonth(m)?new Date(m+'-02T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'}):'—';
@@ -334,7 +334,7 @@ let editTx=null,expType='expense',scanned=null;   // scanned: the last receipt r
 function openExpense(type='expense',tx=null){
  editTx=tx;expType=tx?tx.type:type;const s=data.settings;
  el('expHead').textContent=tx?(tx.virtual?tx.note+' — '+monthLabel(tx.billMonth):'Change this purchase'):'Add a purchase';el('expRefund').checked=expType==='refund';
- el('expAmount').value=tx?tx.amount:'';el('expCategory').innerHTML=catOptions(tx?.category||'groceries',tx?.category);
+ el('expAmount').value=tx?tx.amount:'';el('expCategory').innerHTML=catOptions(tx?.category||(tab==='spending'&&txFilter!==C.SAVINGS&&txFilter)||'groceries',tx?.category);
  el('expDate').value=tx?.date||(thisMonth()===month?today():month+'-01');el('expMethod').innerHTML=methodOptions(tx?.method||s.cards[0]?.id);
  el('expStmt').value=tx?.statementMonth||'';el('expNote').value=tx?.note||'';showErr('expErr','');
  el('expDelete').classList.toggle('hidden',!tx);el('expScanWrap').classList.toggle('hidden',!!tx);el('expScanInfo').textContent='';el('expScanWarn').textContent='';scanned=null;el('expReceipt').classList.toggle('hidden',!(tx&&(tx.receipt||tx.items?.length)));el('expDelete').textContent=tx?.virtual?'Skip this month':'Delete';
